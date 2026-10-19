@@ -2,9 +2,11 @@
 
 ## Continuation on 2026-10-20
 
+**Latest live checkpoint:** The owner applied migrations 003/004, deployed `clarify-claim`, disabled legacy Verify JWT, and saved `GEMINI_API_KEY` privately. A two-account coin-flip claim was created and AI locked it with both answers. The owner reported that, before lock, the answer form still looked unsent after saving. The UI now replaces it with an “Answer recorded” card and Edit action while collecting; `npm run build` passes. Next: have the owner reload both accounts to confirm the locked record persists and wording feels fair, then test vague-claim rejection. The owner handles all browser actions; do not access Chrome without asking. After that, test due voting/scores and phone installation. Slices 2–4 remain unchecked until live verification completes.
+
 The next session implemented the remaining planned code: `202610200001_settlement_scores.sql` adds atomic votes, majority/creator tiebreak, derived pairwise scores, profile ranks, and an expired-draft date extension; `NoticesPage` and `ScoresPage` replace placeholders; a PWA manifest, service worker, icons, install action, and deployment README are present. The Edge Function now supports Supabase's newer secret-key environment and manually verifies user tokens with `supabase/config.toml` setting `verify_jwt = false` for publishable-key invocation. `npm run build` passed, generating `dist/manifest.webmanifest` and `dist/sw.js`; the 192/512 PNG icons and static-cache configuration were checked from files. A localhost HTTP preview probe was blocked by the execution sandbox, so phone/HTTPS installation is still unverified.
 
-**Current next step:** the owner needs to apply migrations 003 then 004 in their Supabase browser dashboard, deploy `clarify-claim` with the legacy Verify JWT gateway switch disabled, and privately save `GEMINI_API_KEY` in Edge Function Secrets. Do not access the browser without renewed permission; the user prefers doing browser steps. After setup, test the vague and clear two-account claims, settlement, a three-person score if a third account is available, and the hosted phone install. The planned slices remain unchecked in `devpost/checklist.md` until those live checks pass. The older sections below describe the 2026-10-19 checkpoint and are retained as historical context.
+The older sections below describe the 2026-10-19 checkpoint and are retained as historical context. The current next step is in **Latest live checkpoint** above.
 
 ## Where to resume
 

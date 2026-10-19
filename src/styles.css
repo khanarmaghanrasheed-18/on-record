@@ -41,6 +41,9 @@
 .member-status{font:500 10px 'DM Mono',monospace;color:#8a977f}
 .answer-form{display:grid;gap:12px;margin-top:27px}
 .answer-form h2{margin:0}
+.answer-saved{display:grid;gap:12px;margin-top:27px;border-color:#c8d9c8;background:#f0f5ed}
+.answer-saved h2{margin:0;color:#294d39}
+.answer-saved p{margin:0;color:#52675a}
 .answer-actions{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .invite-extra{display:flex;align-items:end;gap:10px;margin-top:22px}
 .invite-extra label{flex:1}
