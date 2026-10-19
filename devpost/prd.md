@@ -42,6 +42,7 @@ The learner wants a record-book feel. Claim cards line up vertically and use dif
 
 - A creator sets a check date and selects friends; each participant submits an answer in their own words.
 - AI checks for vague, subjective, or untestable wording before the claim can lock and proposes a clear shared wording and one-line card title. "Tomorrow's weather will be awesome" should be rejected or rewritten into an objective condition because "awesome" means different things to different friends.
+- If AI rejects the claim, the creator can revise its topic. A topic revision asks everyone to submit a new answer for the revised wording; the final answer submission runs AI again automatically.
 - Original answers remain visible after locking. Participants do not need a separate approval step for AI's final wording; an invitee who does not want to take part can reject the invitation without affecting their score.
 
 ### Due notice and settlement
