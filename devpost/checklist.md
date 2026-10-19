@@ -9,7 +9,7 @@ Build mode: fast
 
 ## Slices
 
-- [ ] **1. Two people can register and become friends**
+- [x] **1. Two people can register and become friends**
   Becomes usable: The app opens on desktop and phone sizes; two accounts can register, exchange a public friend ID once, and see each other in the friend panel.
   Why now: This is the smallest live shared behavior and proves the Supabase connection, account setup, and record-book shell before claims depend on them. Project bootstrapping is included here.
   PRD ref: `prd.md > The Core Journey` (steps 1-2), `prd.md > Accounts and friends`, `prd.md > Screens and Layout`
@@ -71,3 +71,5 @@ Reflection: not yet started.
 Activity mode: not yet started.
 
 ## Revisions
+- 2026-10-19: The learner requested that all remaining code be written before further hands-on tests. Keep mechanical build checks during implementation, then run the individual live flows with the learner after the code is complete.
+- 2026-10-19: First live test exposed an ambiguous `id` in the profile visibility policy. A repair migration was applied, and both accounts saw the accepted friendship after reload.
