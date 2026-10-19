@@ -1,5 +1,11 @@
 # On Record — session handoff (2026-10-19)
 
+## Continuation on 2026-10-20
+
+The next session implemented the remaining planned code: `202610200001_settlement_scores.sql` adds atomic votes, majority/creator tiebreak, derived pairwise scores, profile ranks, and an expired-draft date extension; `NoticesPage` and `ScoresPage` replace placeholders; a PWA manifest, service worker, icons, install action, and deployment README are present. The Edge Function now supports Supabase's newer secret-key environment and manually verifies user tokens with `supabase/config.toml` setting `verify_jwt = false` for publishable-key invocation. `npm run build` passed, generating `dist/manifest.webmanifest` and `dist/sw.js`; the 192/512 PNG icons and static-cache configuration were checked from files. A localhost HTTP preview probe was blocked by the execution sandbox, so phone/HTTPS installation is still unverified.
+
+**Current next step:** the owner needs to apply migrations 003 then 004 in their Supabase browser dashboard, deploy `clarify-claim` with the legacy Verify JWT gateway switch disabled, and privately save `GEMINI_API_KEY` in Edge Function Secrets. Do not access the browser without renewed permission; the user prefers doing browser steps. After setup, test the vague and clear two-account claims, settlement, a three-person score if a third account is available, and the hosted phone install. The planned slices remain unchecked in `devpost/checklist.md` until those live checks pass. The older sections below describe the 2026-10-19 checkpoint and are retained as historical context.
+
 ## Where to resume
 
 Resume at **slice 2: AI-checked claim locking**. The account/friend slice is live and verified. Claim creation, answer collection, an AI Edge Function, and the claim UI are committed in this checkpoint and pass `npm run build`, but the new SQL migration has **not** been applied to the live Supabase project, the Edge Function has **not** been deployed, and no claim flow has been tested. Complete the remaining code before asking the user to test individual flows.

@@ -28,6 +28,14 @@ function json(body: unknown, status = 200) {
   })
 }
 
+function serverKey(): string | null {
+  try {
+    const named = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}') as Record<string, unknown>
+    if (typeof named.default === 'string') return named.default
+  } catch { /* Older Supabase projects expose only the legacy key. */ }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+}
+
 function validJudgment(value: unknown, members: Member[]): value is Judgment {
   if (!value || typeof value !== 'object') return false
   const result = value as Partial<Judgment>
@@ -38,6 +46,7 @@ function validJudgment(value: unknown, members: Member[]): value is Judgment {
   if (!Array.isArray(result.options) || result.options.length < 2 || result.options.length > 6) return false
   if (!result.options.every(item => typeof item === 'string' && item.trim().length > 0 && item.length <= 80)) return false
   if (new Set(result.options).size !== result.options.length) return false
+  if (result.options.includes('NONE_OF_THESE')) return false
   if (!Array.isArray(result.matches) || result.matches.length !== members.length) return false
   const expectedIds = new Set(members.map(member => member.user_id))
   const seen = new Set<string>()
@@ -54,7 +63,7 @@ Deno.serve(async request => {
   if (request.method !== 'POST') return json({ error: 'Use POST' }, 405)
 
   const url = Deno.env.get('SUPABASE_URL')
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const serviceKey = serverKey()
   const geminiKey = Deno.env.get('GEMINI_API_KEY')
   if (!url || !serviceKey || !geminiKey) return json({ error: 'AI checking is not configured yet' }, 503)
 
@@ -82,7 +91,7 @@ Deno.serve(async request => {
 
   const members = (allMembers as Member[]).filter(member => member.invite_status !== 'declined')
   if (!members.some(member => member.user_id === identity.user.id)) return json({ error: 'You are not part of this claim' }, 403)
-  if (claim.status !== 'collecting') return json({ error: 'This claim is already locked' }, 409)
+  if (claim.status !== 'collecting') return json({ locked: true, feedback: 'Another participant already locked this claim.' })
   if (new Date(claim.due_at).getTime() <= Date.now()) return json({ error: 'The check time has passed' }, 409)
   if (members.length < 2) return json({ locked: false, feedback: 'Add at least one active friend before locking.' }, 409)
   if (members.some(member => member.invite_status !== 'answered' || !member.original_answer)) {
@@ -148,6 +157,8 @@ Deno.serve(async request => {
     p_choices: members.map(member => matchById.get(member.user_id)),
   })
   if (lockError) {
+    const { data: current } = await admin.from('claims').select('status').eq('id', claimId).single()
+    if (current?.status === 'locked' || current?.status === 'settled') return json({ locked: true })
     console.error('Claim lock failed', lockError)
     return json({ error: 'This claim changed during checking. Reload and try again.' }, 409)
   }

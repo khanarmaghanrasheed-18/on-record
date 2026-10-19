@@ -26,6 +26,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
   const [friendIds, setFriendIds] = useState<string[]>([])
   const [answer, setAnswer] = useState('')
   const [replacementFriend, setReplacementFriend] = useState('')
+  const [rescheduleDue, setRescheduleDue] = useState('')
 
   const refreshList = useCallback(async () => {
     try { setRecords(await listClaims()); setMessage('') }
@@ -155,9 +156,32 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     finally { setBusy(false) }
   }
 
+  async function reschedule(event: FormEvent) {
+    event.preventDefault()
+    if (!supabase || !detail) return
+    const date = new Date(rescheduleDue)
+    if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) {
+      setMessage('Choose a future check time.'); return
+    }
+    setBusy(true)
+    setMessage('')
+    try {
+      const { error } = await supabase.rpc('reschedule_claim', {
+        p_claim_id: detail.claim.id, p_due_at: date.toISOString(),
+      })
+      if (error) throw error
+      await refreshDetail(detail.claim.id)
+      await refreshList()
+      setRescheduleDue('')
+      setMessage('The check time was extended. Friends can finish their answers.')
+    } catch (error) { setMessage(errorMessage(error)) }
+    finally { setBusy(false) }
+  }
+
   const me = detail?.members.find(member => member.user_id === profile.id)
   const availableFriends = friends.filter(friend => !detail?.members.some(member => member.user_id === friend.id))
   const canEdit = detail?.claim.status === 'collecting' && new Date(detail.claim.due_at).getTime() > Date.now()
+  const expiredDraft = detail?.claim.status === 'collecting' && !canEdit
 
   if (view === 'new') return <div className="page-content claim-workspace">
     <div className="page-topline"><span className="eyebrow">NEW ENTRY</span><span>01 / CLAIMS</span></div>
@@ -179,6 +203,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     <div className="claim-title-row"><div><span className="eyebrow">ENTRY · {detail.claim.id.slice(0, 8).toUpperCase()}</span><h1>{detail.claim.title || detail.claim.topic}<span className="period">.</span></h1></div><span className={`status-chip ${detail.claim.status}`}>{detail.claim.status === 'collecting' ? 'COLLECTING WORDS' : detail.claim.status.toUpperCase()}</span></div>
     <p className="page-lead">Check on {displayDate(detail.claim.due_at)} · Started by {detail.members.find(member => member.user_id === detail.claim.creator_id)?.profile?.display_name || 'a friend'}</p>
     {message && <p className="form-message" role="status">{message}</p>}
+    {expiredDraft && <div className="lock-callout"><div><strong>The check time passed before this claim locked.</strong><p>{profile.id === detail.claim.creator_id ? 'Choose a later time so friends can finish.' : 'The creator can extend the check time.'}</p></div>{profile.id === detail.claim.creator_id && <form className="reschedule-form" onSubmit={reschedule}><label className="sr-only" htmlFor="reschedule-date">New check time</label><input id="reschedule-date" type="datetime-local" value={rescheduleDue} onChange={event => setRescheduleDue(event.target.value)} required /><button className="button primary" disabled={busy}>Extend date</button></form>}</div>}
     {detail.claim.status !== 'collecting' && <section className="paper-card final-wording"><span className="eyebrow">THE SHARED QUESTION</span><h2>{detail.claim.question}</h2><div className="option-list">{detail.claim.options?.map(option => <span key={option} className={detail.claim.settled_option === option ? 'winning-option' : ''}>{option}</span>)}</div>{detail.claim.status === 'settled' && <p className="result-line">Settled outcome: <strong>{detail.claim.settled_option}</strong></p>}</section>}
     {detail.claim.status === 'collecting' && <section className="paper-card topic-card"><span className="eyebrow">THE TOPIC</span>{profile.id === detail.claim.creator_id ? <form onSubmit={editTopic}><label className="sr-only" htmlFor="edit-topic">Edit topic</label><textarea id="edit-topic" value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={3} /><button className="text-button" disabled={busy || topic.trim() === detail.claim.topic}>Save revised topic</button></form> : <h2>{detail.claim.topic}</h2>}<p>AI checks the topic and every answer for clear, objective settlement terms.</p></section>}
     <div className="section-head member-heading"><div><span className="eyebrow">ORIGINAL POSITIONS</span><h2>What everyone said</h2></div><span>{detail.members.filter(member => member.invite_status !== 'declined').length} PARTICIPANTS</span></div>

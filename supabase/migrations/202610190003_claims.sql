@@ -49,6 +49,18 @@ returns boolean language sql stable security definer set search_path = '' as $$
   );
 $$;
 
+-- Profile RLS must not query claim_members as the browser role because direct
+-- table access is revoked to keep draft answers private.
+create function public.shares_claim_with(p_user_id uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null and exists (
+    select 1 from public.claim_members mine
+    join public.claim_members other_member on other_member.claim_id = mine.claim_id
+    where mine.user_id = auth.uid() and mine.invite_status <> 'declined'
+      and other_member.user_id = p_user_id
+  );
+$$;
+
 alter table public.claims enable row level security;
 alter table public.claim_members enable row level security;
 create policy claims_for_participants on public.claims
@@ -66,14 +78,12 @@ using (
     where (f.user_a = public.profiles.id or f.user_b = public.profiles.id)
       and (f.user_a = (select auth.uid()) or f.user_b = (select auth.uid()))
   )
-  or exists (
-    select 1 from public.claim_members cm
-    where cm.user_id = public.profiles.id and public.is_claim_member(cm.claim_id)
-  )
+  or public.shares_claim_with(id)
 );
 
 revoke all on public.claims, public.claim_members from anon, authenticated;
 grant select on public.claims to authenticated;
+grant select, insert, update, delete on public.claims, public.claim_members to service_role;
 
 -- Read drafts through an RPC so another participant cannot inspect an
 -- answer before locking by bypassing the browser's hidden UI.
@@ -234,6 +244,7 @@ begin
   if char_length(trim(p_title)) not between 4 and 80 or
      char_length(trim(p_question)) not between 10 and 300 or
      cardinality(p_options) not between 2 and 6 or
+     'NONE_OF_THESE' = any(p_options) or
      cardinality(p_member_ids) <> active_count or cardinality(p_choices) <> active_count or
      (select count(distinct x) from unnest(p_options) x) <> cardinality(p_options) or
      (select count(distinct x) from unnest(p_member_ids) x) <> active_count then
@@ -257,6 +268,7 @@ end;
 $$;
 
 revoke all on function public.is_claim_member(uuid) from public, anon;
+revoke all on function public.shares_claim_with(uuid) from public, anon;
 revoke all on function public.get_claim_members(uuid) from public, anon;
 revoke all on function public.create_claim(text, timestamptz, uuid[]) from public, anon;
 revoke all on function public.answer_claim(uuid, text) from public, anon;
@@ -265,6 +277,7 @@ revoke all on function public.decline_claim(uuid) from public, anon;
 revoke all on function public.invite_to_claim(uuid, uuid) from public, anon;
 revoke all on function public.finalize_claim(uuid, text, text, text[], uuid[], text[]) from public, anon, authenticated;
 grant execute on function public.is_claim_member(uuid) to authenticated;
+grant execute on function public.shares_claim_with(uuid) to authenticated;
 grant execute on function public.get_claim_members(uuid) to authenticated;
 grant execute on function public.create_claim(text, timestamptz, uuid[]) to authenticated;
 grant execute on function public.answer_claim(uuid, text) to authenticated;

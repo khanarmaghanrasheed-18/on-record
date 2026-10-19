@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type FriendConnection, type Friendship, type Profile } from './lib/supabase'
 import ClaimWorkspace from './components/ClaimWorkspace'
+import NoticesPage from './components/NoticesPage'
+import ScoresPage, { ProfilePage } from './components/ScoresPage'
+import { UpdateNotice } from './components/InstallActions'
+import { isDue, listClaims } from './lib/claims'
 
-type Section = 'records' | 'friends' | 'notices' | 'profile'
+type Section = 'records' | 'friends' | 'notices' | 'scores' | 'profile'
 
 function AuthScreen() {
   const [registering, setRegistering] = useState(true)
@@ -134,6 +138,7 @@ function App() {
   const [connections, setConnections] = useState<FriendConnection[]>([])
   const [section, setSection] = useState<Section>('records')
   const [error, setError] = useState('')
+  const [dueCount, setDueCount] = useState(0)
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return }
@@ -181,6 +186,14 @@ function App() {
     document.addEventListener('visibilitychange', updateWhenVisible)
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', updateWhenVisible) }
   }, [refresh, session])
+  useEffect(() => {
+    if (!session) { setDueCount(0); return }
+    const checkDue = () => { void listClaims().then(rows => setDueCount(rows.filter(isDue).length)).catch(() => undefined) }
+    checkDue()
+    const timer = window.setInterval(checkDue, 30000)
+    document.addEventListener('visibilitychange', checkDue)
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', checkDue) }
+  }, [session?.user.id])
 
   if (!supabase) return <div className="setup-message"><div className="brand"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><h1>Connect your record book</h1><p>Copy <code>.env.example</code> to <code>.env</code> and enter your Supabase project URL and publishable key. Then restart the development server.</p></div>
   const activeClient = supabase
@@ -192,11 +205,18 @@ function App() {
   const pendingCount = connections.filter(connection => connection.status === 'pending' && connection.requested_by !== profile.id).length
   return <div className="app-shell">
     <header className="app-header"><button className="brand" onClick={() => setSection('records')}><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></button><span className="header-subtitle">THE FRIENDSHIP LEDGER</span><div className="header-user"><span className="avatar small-avatar">{profile.display_name[0].toUpperCase()}</span><span>{profile.display_name}</span></div></header>
-    <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span> Notices</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
-      <main>{section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}{section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} />}{section === 'notices' && <div className="page-content"><div className="page-topline"><span className="eyebrow">DUE & UPCOMING</span><span>03 / NOTICES</span></div><h1>Nothing due yet<span className="period">.</span></h1><p className="page-lead">Your claims will appear here when it is time to settle them.</p></div>}{section === 'profile' && <div className="page-content"><div className="page-topline"><span className="eyebrow">ACCOUNT DETAILS</span><span>04 / PROFILE</span></div><h1>Your profile<span className="period">.</span></h1><div className="paper-card profile-card"><div className="profile-avatar">{profile.display_name[0].toUpperCase()}</div><div><span className="eyebrow">MEMBER OF THE RECORD</span><h2>{profile.display_name}</h2><p>Your friend ID: <strong>{profile.friend_code}</strong></p><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out ↗</button></div></div></div>}</main>
+    <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span> Notices {dueCount > 0 && <b className="nav-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => setSection('scores')}><span>◇</span> Scores</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
+      <main>
+        {section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}
+        {section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} />}
+        {section === 'notices' && <NoticesPage profile={profile} />}
+        {section === 'scores' && <ScoresPage profile={profile} connections={connections} />}
+        {section === 'profile' && <ProfilePage profile={profile} signOut={() => void activeClient.auth.signOut()} />}
+      </main>
       <FriendsPanel connections={connections} onNavigate={() => setSection('friends')} />
     </div>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span>Notices</button><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span>Profile</button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span>Notices{dueCount > 0 && <b className="mobile-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => setSection('scores')}><span>◇</span>Scores</button><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span>Profile</button></nav>
+    <UpdateNotice />
   </div>
 }
 

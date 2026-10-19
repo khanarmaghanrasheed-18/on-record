@@ -1,0 +1,4 @@
+[functions.clarify-claim]
+# The browser uses a publishable key. The function verifies the caller's
+# session token itself with auth.getUser before any privileged database read.
+verify_jwt = false
