@@ -71,6 +71,7 @@ Reflection: not yet started.
 Activity mode: not yet started.
 
 ## Revisions
+- 2026-10-20: The learner confirmed the claim-revision migration and updated AI function work live. They found that AI rejection feedback appeared above the claim and required scrolling; rejection now opens the answer editor, shows the feedback beside it, and scrolls there automatically. No extra AI action button was added. This UI change still needs the learner's live check.
 - 2026-10-20: Live vague-claim testing exposed that editing a rejected topic left old answers attached, so AI could still reject their subjective wording. The creator's topic revision now resets submitted drafts, and AI rechecks automatically after the final fresh answer. The manual check button was removed at the learner's request. A new SQL migration and Edge Function redeployment are required before verifying this repair live.
 - 2026-10-20: Live two-account testing confirmed a clear coin-flip claim locked with both original answers. The learner noticed the saved-answer form still looked unsent while waiting for a friend; the collecting view now shows an explicit saved state with an Edit action. Reload persistence and vague-claim rejection remain to verify before checking slice 2.
 - 2026-10-20: The remaining claim, settlement, score, and PWA code was implemented before learner testing as requested. Local TypeScript/Vite build and generated PWA files passed checks. Slices 2–4 remain unchecked until the new SQL, Edge Function, two-account journey, and hosted install are verified live with the learner.

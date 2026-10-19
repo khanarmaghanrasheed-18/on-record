@@ -41,6 +41,12 @@
 .member-status{font:500 10px 'DM Mono',monospace;color:#8a977f}
 .answer-form{display:grid;gap:12px;margin-top:27px}
 .answer-form h2{margin:0}
+.answer-checking{margin-top:27px;padding:17px 20px;border-left:4px solid #66866e;background:#edf2ea;color:#2d5540;font-size:13px;scroll-margin:24px}
+.answer-checking+.answer-saved{margin-top:0}
+.answer-feedback{margin-top:27px;padding:17px 20px;border-left:4px solid #b7654b;background:#f8e9e1;color:#703f34;scroll-margin:24px}
+.answer-feedback .eyebrow{color:#9b4e37}
+.answer-feedback p{margin:8px 0 0;font:600 13px/1.6 'DM Sans',sans-serif}
+.answer-feedback+.answer-form{margin-top:0}
 .answer-saved{display:grid;gap:12px;margin-top:27px;border-color:#c8d9c8;background:#f0f5ed}
 .answer-saved h2{margin:0;color:#294d39}
 .answer-saved p{margin:0;color:#52675a}

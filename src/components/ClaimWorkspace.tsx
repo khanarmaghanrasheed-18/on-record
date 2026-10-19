@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { supabase, type FriendConnection, type Profile } from '../lib/supabase'
 import { checkAndLockClaim, displayDate, getClaimDetail, isDue, listClaims, type Claim, type ClaimDetail } from '../lib/claims'
 
@@ -26,6 +26,9 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
   const [friendIds, setFriendIds] = useState<string[]>([])
   const [answer, setAnswer] = useState('')
   const [editingAnswer, setEditingAnswer] = useState(false)
+  const [clarityIssue, setClarityIssue] = useState<{ kind: 'rejected' | 'error'; text: string } | null>(null)
+  const [checkingClaim, setCheckingClaim] = useState(false)
+  const feedbackRef = useRef<HTMLDivElement>(null)
   const [replacementFriend, setReplacementFriend] = useState('')
   const [rescheduleDue, setRescheduleDue] = useState('')
 
@@ -45,6 +48,9 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
 
   useEffect(() => { void refreshList() }, [refreshList])
   useEffect(() => {
+    if (checkingClaim || clarityIssue) feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [checkingClaim, clarityIssue])
+  useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
       void refreshList()
@@ -58,6 +64,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     setLoading(true)
     setMessage('')
     setEditingAnswer(false)
+    setClarityIssue(null)
     try { await refreshDetail(id); setView('detail') }
     catch (error) { setMessage(errorMessage(error)) }
     finally { setLoading(false) }
@@ -85,17 +92,29 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
 
   async function runCheck(id: string) {
     setBusy(true)
-    setMessage('AI is checking whether everyone’s words can be settled fairly…')
+    setCheckingClaim(true)
+    setClarityIssue(null)
+    setMessage('')
     try {
       const result = await checkAndLockClaim(id)
       if (result.locked) {
-        await Promise.all([refreshDetail(id), refreshList()])
-        setMessage('The claim is clear and now on record. Original answers are locked.')
+        try {
+          await Promise.all([refreshDetail(id), refreshList()])
+          setMessage('The claim is clear and now on record. Original answers are locked.')
+        } catch {
+          setMessage('The claim locked, but this page could not refresh. Reopen the record to see it.')
+        }
       } else {
-        setMessage(`${result.feedback || 'Make the claim more precise.'} Revise the topic or edit an answer, then submit again.`)
+        setMessage('')
+        setEditingAnswer(true)
+        setClarityIssue({ kind: 'rejected', text: `${result.feedback || 'Make the claim more precise.'} Revise the topic or your answer, then submit again.` })
       }
-    } catch (error) { setMessage(errorMessage(error)) }
-    finally { setBusy(false) }
+    } catch (error) {
+      setMessage('')
+      setEditingAnswer(true)
+      setClarityIssue({ kind: 'error', text: `${errorMessage(error)} Your answer is saved; submit it again to retry.` })
+    }
+    finally { setCheckingClaim(false); setBusy(false) }
   }
 
   async function saveAnswer(event: FormEvent) {
@@ -103,6 +122,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     if (!supabase || !detail) return
     setBusy(true)
     setMessage('')
+    setClarityIssue(null)
     try {
       const { error } = await supabase.rpc('answer_claim', { p_claim_id: detail.claim.id, p_answer: answer.trim() })
       if (error) throw error
@@ -124,6 +144,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
       if (error) throw error
       await refreshDetail(detail.claim.id)
       setEditingAnswer(false)
+      setClarityIssue(null)
       setMessage('Claim revised. Everyone can now submit a fresh answer; AI checks automatically after the last submission.')
     } catch (error) { setMessage(errorMessage(error)) }
     finally { setBusy(false) }
@@ -211,6 +232,8 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     {detail.claim.status === 'collecting' && <section className="paper-card topic-card"><span className="eyebrow">THE TOPIC</span>{profile.id === detail.claim.creator_id ? <form onSubmit={editTopic}><label className="sr-only" htmlFor="edit-topic">Revise claim topic</label><textarea id="edit-topic" value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={3} /><button className="button outlined" disabled={busy || topic.trim() === detail.claim.topic}>Revise claim and reset answers</button></form> : <h2>{detail.claim.topic}</h2>}<p>{profile.id === detail.claim.creator_id ? 'Changing the topic clears everyone’s draft answers so each friend can respond to the new wording.' : 'If the creator changes this topic, you can submit a fresh answer.'} AI checks automatically after everyone submits.</p></section>}
     <div className="section-head member-heading"><div><span className="eyebrow">ORIGINAL POSITIONS</span><h2>What everyone said</h2></div><span>{detail.members.filter(member => member.invite_status !== 'declined').length} PARTICIPANTS</span></div>
     <div className="member-list">{detail.members.map(member => <div className="member-entry" key={member.user_id}><span className="avatar">{member.profile?.display_name[0] || '?'}</span><div><strong>{member.profile?.display_name || 'Friend'}{member.user_id === profile.id ? ' (you)' : ''}</strong><p>{member.invite_status === 'declined' ? 'Declined the invitation' : member.original_answer || (member.invite_status === 'answered' ? 'Answer saved privately until lock' : 'Waiting for an answer')}</p>{member.normalized_choice && <small>Recorded as: {member.normalized_choice}</small>}</div><span className={`member-status ${member.invite_status}`}>{member.invite_status.toUpperCase()}</span></div>)}</div>
+    {checkingClaim && <div className="answer-checking" ref={feedbackRef} role="status">AI is checking whether this claim can be settled fairly…</div>}
+    {clarityIssue && <div className="answer-feedback" ref={feedbackRef} role="alert"><span className="eyebrow">{clarityIssue.kind === 'rejected' ? 'AI NEEDS A REVISION' : 'AI CHECK COULD NOT FINISH'}</span><p>{clarityIssue.text}</p></div>}
     {canEdit && me?.invite_status === 'answered' && !editingAnswer && <section className="paper-card answer-saved" aria-label="Your saved answer"><span className="eyebrow">YOUR ANSWER · SAVED</span><h2>Answer recorded ✓</h2><p>Your words are saved privately. You can change them until AI locks this claim.</p><div className="answer-actions"><button type="button" className="button outlined" onClick={() => setEditingAnswer(true)}>Edit my answer</button>{profile.id !== detail.claim.creator_id && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></section>}
     {canEdit && me?.invite_status !== 'declined' && (me?.invite_status !== 'answered' || editingAnswer) && <form className="paper-card answer-form" onSubmit={saveAnswer}><span className="eyebrow">YOUR WORDS</span><h2>{me?.invite_status === 'answered' ? 'Edit your answer' : 'Write your answer'}</h2><label className="sr-only" htmlFor="your-answer">Your prediction</label><textarea id="your-answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} placeholder="I think Manchester City will win." required /><div className="answer-actions"><button className="button primary" disabled={busy}>Save my answer</button>{me?.invite_status === 'answered' && <button type="button" className="text-button" disabled={busy} onClick={() => { setAnswer(me.original_answer || ''); setEditingAnswer(false) }}>Cancel edit</button>}{profile.id !== detail.claim.creator_id && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></form>}
     {canEdit && profile.id === detail.claim.creator_id && availableFriends.length > 0 && <form className="invite-extra" onSubmit={invite}><label>Add another friend if someone declined<select value={replacementFriend} onChange={event => setReplacementFriend(event.target.value)} required><option value="">Choose a friend</option>{availableFriends.map(friend => <option key={friend.id} value={friend.id}>{friend.display_name}</option>)}</select></label><button className="button outlined" disabled={busy || !replacementFriend}>Invite</button></form>}
