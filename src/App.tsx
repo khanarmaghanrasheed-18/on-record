@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type FriendConnection, type Friendship, type Profile } from './lib/supabase'
+import ClaimWorkspace from './components/ClaimWorkspace'
 
 type Section = 'records' | 'friends' | 'notices' | 'profile'
 
@@ -126,17 +127,6 @@ function FriendsPage({ profile, connections, refresh }: { profile: Profile, conn
   </div>
 }
 
-function Dashboard({ profile, connections, navigate }: { profile: Profile, connections: FriendConnection[], navigate: (section: Section) => void }) {
-  const count = connections.filter(connection => connection.status === 'accepted').length
-  return <div className="page-content">
-    <div className="page-topline"><span className="eyebrow">YOUR RECORD BOOK</span><span>01 / HOME</span></div>
-    <div className="welcome-row"><div><h1>Good to have you here,<br /><em>{profile.display_name}</em><span className="period">.</span></h1><p className="page-lead">Every great prediction starts with someone willing to put it in writing.</p></div><div className="ledger-stamp"><span>ON RECORD</span><strong>01</strong><small>THE STORY STARTS HERE</small></div></div>
-    <div className="section-head records-heading"><div><span className="eyebrow">THE LEDGER</span><h2>Claims on record</h2></div><span>0 ENTRIES</span></div>
-    <div className="claim-card-preview"><div className="card-stripe" /><div className="claim-inner"><span className="claim-number">ENTRY NO. 001 <span>✦</span> COMING NEXT</span><h3>Your first claim belongs here.</h3><p>{count ? 'Your friends are in place. Claim creation is the next build step.' : 'Add a friend, then you can put your first prediction on record.'}</p><button className="inline-link" onClick={() => navigate('friends')}>{count ? 'See your circle' : 'Add your first friend'} <span>↗</span></button></div></div>
-    <div className="hint-row"><span>✳</span><p>Original words stay. Results settle the score. Everyone remembers who called it.</p></div>
-  </div>
-}
-
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -203,7 +193,7 @@ function App() {
   return <div className="app-shell">
     <header className="app-header"><button className="brand" onClick={() => setSection('records')}><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></button><span className="header-subtitle">THE FRIENDSHIP LEDGER</span><div className="header-user"><span className="avatar small-avatar">{profile.display_name[0].toUpperCase()}</span><span>{profile.display_name}</span></div></header>
     <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span> Notices</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
-      <main>{section === 'records' && <Dashboard profile={profile} connections={connections} navigate={setSection} />}{section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} />}{section === 'notices' && <div className="page-content"><div className="page-topline"><span className="eyebrow">DUE & UPCOMING</span><span>03 / NOTICES</span></div><h1>Nothing due yet<span className="period">.</span></h1><p className="page-lead">Your claims will appear here when it is time to settle them.</p></div>}{section === 'profile' && <div className="page-content"><div className="page-topline"><span className="eyebrow">ACCOUNT DETAILS</span><span>04 / PROFILE</span></div><h1>Your profile<span className="period">.</span></h1><div className="paper-card profile-card"><div className="profile-avatar">{profile.display_name[0].toUpperCase()}</div><div><span className="eyebrow">MEMBER OF THE RECORD</span><h2>{profile.display_name}</h2><p>Your friend ID: <strong>{profile.friend_code}</strong></p><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out ↗</button></div></div></div>}</main>
+      <main>{section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}{section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} />}{section === 'notices' && <div className="page-content"><div className="page-topline"><span className="eyebrow">DUE & UPCOMING</span><span>03 / NOTICES</span></div><h1>Nothing due yet<span className="period">.</span></h1><p className="page-lead">Your claims will appear here when it is time to settle them.</p></div>}{section === 'profile' && <div className="page-content"><div className="page-topline"><span className="eyebrow">ACCOUNT DETAILS</span><span>04 / PROFILE</span></div><h1>Your profile<span className="period">.</span></h1><div className="paper-card profile-card"><div className="profile-avatar">{profile.display_name[0].toUpperCase()}</div><div><span className="eyebrow">MEMBER OF THE RECORD</span><h2>{profile.display_name}</h2><p>Your friend ID: <strong>{profile.friend_code}</strong></p><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out ↗</button></div></div></div>}</main>
       <FriendsPanel connections={connections} onNavigate={() => setSection('friends')} />
     </div>
     <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span>Notices</button><button className={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}><span>◉</span>Profile</button></nav>
