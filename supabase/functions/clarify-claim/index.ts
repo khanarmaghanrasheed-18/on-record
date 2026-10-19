@@ -74,16 +74,19 @@ Deno.serve(async request => {
   if (authError || !identity.user) return json({ error: 'Sign in again' }, 401)
 
   let claimId: string
+  let revisedAnswer: string | undefined
   try {
     const body = await request.json()
     claimId = body.claimId
+    revisedAnswer = body.revisedAnswer
     if (typeof claimId !== 'string' || !/^[0-9a-f-]{36}$/i.test(claimId)) throw new Error('invalid')
+    if (revisedAnswer !== undefined && (typeof revisedAnswer !== 'string' || revisedAnswer.trim().length < 2 || revisedAnswer.trim().length > 300)) throw new Error('invalid answer')
   } catch {
     return json({ error: 'Choose a claim to check' }, 400)
   }
 
   const { data: claim, error: claimError } = await admin.from('claims')
-    .select('id, creator_id, topic, due_at, status').eq('id', claimId).single()
+    .select('id, creator_id, topic, due_at, status, locked_at, title, question, options, revision').eq('id', claimId).single()
   if (claimError || !claim) return json({ error: 'Claim unavailable' }, 404)
   const { data: allMembers, error: membersError } = await admin.from('claim_members')
     .select('user_id, invite_status, original_answer').eq('claim_id', claimId).order('joined_at')
@@ -91,7 +94,12 @@ Deno.serve(async request => {
 
   const members = (allMembers as Member[]).filter(member => member.invite_status !== 'declined')
   if (!members.some(member => member.user_id === identity.user.id)) return json({ error: 'You are not part of this claim' }, 403)
-  if (claim.status !== 'collecting') return json({ locked: true, feedback: 'Another participant already locked this claim.' })
+  const revising = revisedAnswer !== undefined
+  if (revising) {
+    if (claim.status !== 'locked' || !claim.locked_at || Date.now() >= Math.min(new Date(claim.locked_at).getTime() + 300000, new Date(claim.due_at).getTime())) return json({ error: 'The answer edit window has closed' }, 409)
+    if (!members.some(member => member.user_id === identity.user.id && member.invite_status === 'answered')) return json({ error: 'Only an active participant can edit their answer' }, 403)
+    members.find(member => member.user_id === identity.user.id)!.original_answer = revisedAnswer!.trim()
+  } else if (claim.status !== 'collecting') return json({ locked: true, feedback: 'Another participant already locked this claim.' })
   if (new Date(claim.due_at).getTime() <= Date.now()) return json({ error: 'The check time has passed' }, 409)
   if (members.length < 2) return json({ locked: false, feedback: 'Add at least one active friend before locking.' }, 409)
   if (members.some(member => member.invite_status !== 'answered' || !member.original_answer)) {
@@ -117,7 +125,7 @@ Deno.serve(async request => {
     required: ['clear', 'feedback', 'title', 'question', 'options', 'matches'],
   }
 
-  const instructions = `You are a strict referee for a friends' prediction record book. Check only the current topic and current answers below. Decide whether this upcoming claim can be settled objectively at the check time. Return clear=false if the topic or any answer is subjective, vague, not measurable, about a different event, or impossible to map fairly. Give specific, actionable feedback identifying what is missing: for example a location, measured quantity, time window, evidence source, or an answer that does not fit the topic. Do not repeat a generic rejection if the current wording is measurable. Do not judge the real-world result now. Do not change or invent an original answer. If clear=true: produce a short neutral title, a precise question with settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Include a draw option when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. Return JSON only.\n\nCheck time: ${claim.due_at}\nCurrent topic: ${claim.topic}\nCurrent original answers: ${JSON.stringify(members.map(member => ({ userId: member.user_id, answer: member.original_answer })))}`
+  const instructions = `You are a strict referee for a friends' prediction record book. Check only the current topic and current answers below. Decide whether this upcoming claim can be settled objectively at the check time. Return clear=false if the topic or any answer is subjective, vague, not measurable, about a different event, or impossible to map fairly. Give specific, actionable feedback identifying what is missing: for example a location, measured quantity, time window, evidence source, or an answer that does not fit the topic. Do not repeat a generic rejection if the current wording is measurable. Do not judge the real-world result now. Do not change or invent an original answer. If clear=true: produce a short neutral title, a precise question with settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Include a draw option when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. When reviewing an answer edit, preserve the current title, question, and options if they remain fair. Return JSON only.\n\nCheck time: ${claim.due_at}\nCurrent topic: ${claim.topic}\nCurrent title: ${claim.title || '(not set)'}\nCurrent question: ${claim.question || '(not set)'}\nCurrent options: ${JSON.stringify(claim.options || [])}\nCurrent original answers: ${JSON.stringify(members.map(member => ({ userId: member.user_id, answer: member.original_answer })))}`
 
   let judgment: unknown
   try {
@@ -137,17 +145,28 @@ Deno.serve(async request => {
     judgment = JSON.parse(content)
   } catch (error) {
     console.error('Gemini check failed', error)
-    return json({ error: 'AI checking is temporarily unavailable. Your answers are still editable; retry shortly.' }, 503)
+    return json({ error: 'AI checking is temporarily unavailable. Retry shortly; your current answer is unchanged.' }, 503)
   }
 
   if (!validJudgment(judgment, members)) {
-    return json({ error: 'AI returned an incomplete result. Your answers are still editable; retry.' }, 503)
+    return json({ error: 'AI returned an incomplete result. Retry; your current answer is unchanged.' }, 503)
   }
   if (!judgment.clear) {
     return json({ locked: false, feedback: judgment.feedback.trim() || 'Make the topic and every answer more specific.' })
   }
 
   const matchById = new Map(judgment.matches.map(match => [match.userId, match.option]))
+  if (revising) {
+    const { error: editError } = await admin.rpc('revise_locked_answer', {
+      p_claim_id: claimId, p_actor_id: identity.user.id, p_answer: revisedAnswer!.trim(),
+      p_expected_revision: claim.revision, p_title: judgment.title.trim(),
+      p_question: judgment.question.trim(), p_options: judgment.options,
+      p_member_ids: members.map(member => member.user_id),
+      p_choices: members.map(member => matchById.get(member.user_id)),
+    })
+    if (editError) return json({ error: editError.message }, 409)
+    return json({ locked: true, revised: true, title: judgment.title })
+  }
   const { error: lockError } = await admin.rpc('finalize_claim', {
     p_claim_id: claimId,
     p_title: judgment.title.trim(),

@@ -10,6 +10,7 @@ export type Claim = {
   question: string | null
   options: string[] | null
   locked_at: string | null
+  revision: number
   settled_option: string | null
   settled_at: string | null
   created_at: string
@@ -62,9 +63,9 @@ export function isDue(claim: Claim) {
   return claim.status === 'locked' && new Date(claim.due_at).getTime() <= Date.now()
 }
 
-export async function checkAndLockClaim(claimId: string): Promise<{ locked: boolean; feedback?: string }> {
+export async function checkAndLockClaim(claimId: string, revisedAnswer?: string): Promise<{ locked: boolean; feedback?: string }> {
   if (!supabase) throw new Error('Supabase is not configured')
-  const { data, error } = await supabase.functions.invoke('clarify-claim', { body: { claimId } })
+  const { data, error } = await supabase.functions.invoke('clarify-claim', { body: { claimId, ...(revisedAnswer === undefined ? {} : { revisedAnswer }) } })
   if (error) {
     const context = (error as { context?: unknown }).context
     if (context instanceof Response) {

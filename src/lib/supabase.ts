@@ -8,6 +8,9 @@ export const supabase: SupabaseClient | null = url && key ? createClient(url, ke
 export type Profile = {
   id: string
   display_name: string
+  headline: string
+  bio: string
+  avatar_path: string | null
   friend_code: string
   created_at: string
 }

@@ -31,6 +31,12 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
   const feedbackRef = useRef<HTMLDivElement>(null)
   const [replacementFriend, setReplacementFriend] = useState('')
   const [rescheduleDue, setRescheduleDue] = useState('')
+  const [now, setNow] = useState(Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 5000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   const refreshList = useCallback(async () => {
     try { setRecords(await listClaims()); setMessage('') }
@@ -134,6 +140,27 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     finally { setBusy(false) }
   }
 
+  async function reviseLockedAnswer(event: FormEvent) {
+    event.preventDefault()
+    if (!detail || !answer.trim()) return
+    setBusy(true)
+    setCheckingClaim(true)
+    setClarityIssue(null)
+    setMessage('')
+    try {
+      const result = await checkAndLockClaim(detail.claim.id, answer.trim())
+      if (!result.locked) {
+        setClarityIssue({ kind: 'rejected', text: result.feedback || 'Make your answer more precise, then submit again.' })
+        return
+      }
+      await Promise.all([refreshDetail(detail.claim.id), refreshList()])
+      setEditingAnswer(false)
+      setMessage('Your revised answer is on record. The shared question was checked again.')
+    } catch (error) {
+      setClarityIssue({ kind: 'error', text: `${errorMessage(error)} Your previous answer is unchanged.` })
+    } finally { setCheckingClaim(false); setBusy(false) }
+  }
+
   async function editTopic(event: FormEvent) {
     event.preventDefault()
     if (!supabase || !detail) return
@@ -206,6 +233,8 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
   const availableFriends = friends.filter(friend => !detail?.members.some(member => member.user_id === friend.id))
   const canEdit = detail?.claim.status === 'collecting' && new Date(detail.claim.due_at).getTime() > Date.now()
   const expiredDraft = detail?.claim.status === 'collecting' && !canEdit
+  const editDeadline = detail?.claim.locked_at ? Math.min(new Date(detail.claim.locked_at).getTime() + 300000, new Date(detail.claim.due_at).getTime()) : 0
+  const canReviseLocked = detail?.claim.status === 'locked' && now < editDeadline && me?.invite_status === 'answered'
 
   if (view === 'new') return <div className="page-content claim-workspace">
     <div className="page-topline"><span className="eyebrow">NEW ENTRY</span><span>01 / CLAIMS</span></div>
@@ -238,7 +267,9 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
     {canEdit && me?.invite_status !== 'declined' && (me?.invite_status !== 'answered' || editingAnswer) && <form className="paper-card answer-form" onSubmit={saveAnswer}><span className="eyebrow">YOUR WORDS</span><h2>{me?.invite_status === 'answered' ? 'Edit your answer' : 'Write your answer'}</h2><label className="sr-only" htmlFor="your-answer">Your prediction</label><textarea id="your-answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} placeholder="I think Manchester City will win." required /><div className="answer-actions"><button className="button primary" disabled={busy}>Save my answer</button>{me?.invite_status === 'answered' && <button type="button" className="text-button" disabled={busy} onClick={() => { setAnswer(me.original_answer || ''); setEditingAnswer(false) }}>Cancel edit</button>}{profile.id !== detail.claim.creator_id && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></form>}
     {canEdit && profile.id === detail.claim.creator_id && availableFriends.length > 0 && <form className="invite-extra" onSubmit={invite}><label>Add another friend if someone declined<select value={replacementFriend} onChange={event => setReplacementFriend(event.target.value)} required><option value="">Choose a friend</option>{availableFriends.map(friend => <option key={friend.id} value={friend.id}>{friend.display_name}</option>)}</select></label><button className="button outlined" disabled={busy || !replacementFriend}>Invite</button></form>}
     {canEdit && readyToLock(detail) && <div className="lock-callout"><div><strong>Everyone has answered.</strong><p>AI checks the claim automatically when an answer is submitted. If it needs revision, update the topic or edit an answer, then submit again.</p></div></div>}
-    {detail.claim.status === 'locked' && <div className="hint-row"><span>◷</span><p>{isDue(detail.claim) ? 'This claim is due. Open Notices to vote on the result.' : 'The original answers are locked. Come back when the check time arrives.'}</p></div>}
+    {canReviseLocked && !editingAnswer && <section className="paper-card answer-saved"><span className="eyebrow">FIVE-MINUTE CORRECTION WINDOW</span><h2>Your answer is on record ✓</h2><p>You may edit only your answer until {displayDate(new Date(editDeadline).toISOString())}. AI will check it again automatically.</p><button className="button outlined" onClick={() => { setAnswer(me?.original_answer || ''); setEditingAnswer(true) }}>Edit my answer</button></section>}
+    {canReviseLocked && editingAnswer && <form className="paper-card answer-form" onSubmit={reviseLockedAnswer}><span className="eyebrow">CORRECT YOUR ANSWER</span><h2>Your position</h2><textarea aria-label="Your revised answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} required /><div className="answer-actions"><button className="button primary" disabled={busy || answer.trim() === me?.original_answer}>{busy ? 'Checking…' : 'Submit revised answer'}</button><button type="button" className="text-button" disabled={busy} onClick={() => { setEditingAnswer(false); setClarityIssue(null) }}>Cancel</button></div></form>}
+    {detail.claim.status === 'locked' && <div className="hint-row"><span>◷</span><p>{isDue(detail.claim) ? 'This claim is due. Open Notices to vote on the result.' : canReviseLocked ? 'After the correction window closes, every answer stays permanent.' : 'The correction window is closed. Come back when the check time arrives.'}</p></div>}
   </div>
 
   return <div className="page-content claim-workspace">

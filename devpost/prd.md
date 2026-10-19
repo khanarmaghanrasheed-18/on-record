@@ -12,23 +12,24 @@ A phone-friendly prediction record book for friends. Source: `scope.md > The Uni
 1. A new person registers an account once; returning people open their claim collection.
 2. A person sends a friend request by user ID. Once accepted, the friend can be chosen for claims without re-entering an ID.
 3. The creator starts a dated claim and chooses two or more participants from their friends. Each participant writes their own answer or claim.
-4. AI checks the wording, finalizes the shared claim and a one-line title, and the submitted answers lock before the outcome. An invited friend can decline to join instead of having a claim affect their score.
+4. AI checks the wording, finalizes the shared claim and a one-line title, and records the submitted answers before the outcome. Each participant may correct only their own answer for five minutes after locking, or until the check time if sooner; AI checks the revision and the record then becomes permanent. An invited friend can decline to join instead of having a claim affect their score.
 5. When the check date arrives, participants receive a notice and propose the actual outcome. A group settles by majority; with two people, the creator's decision breaks a disagreement.
 6. The record preserves the original positions and outcome. A correct participant gains one point against each wrong participant; head-to-head scores and earned profile titles update.
 
 ## Screens and Layout
 
-- **Registration** for first-time account creation.
+- **Registration, sign-in, and password recovery** through the account's sign-in email.
 - **Home** after sign-in: claims appear as vertically stacked, differently colored cards with one-line titles; friends' user names appear in a side panel. The main action is starting a claim. A notifications tab shows due claims.
 - **Friend area** for requesting a friend by user ID and accepting a request, then selecting friends for a claim.
 - **Claim detail** for submitted answers, AI's shared wording, lock state, check date, and eventual result.
 - **Head-to-head score view** for the selected friend; group claims contribute to each pair's score.
+- **Profile** opened from the header or a friend's name, with a photo, personal title, bio, and earned rank.
 
 Source: `scope.md > The Core Loop` and `What "Working" Looks Like`.
 
 ## Look and Feel
 
-The learner wants a record-book feel. Claim cards line up vertically and use different colors. Typography and whether colors encode status are not specified.
+The learner wants a record-book feel. Claim cards line up vertically and use distinct, vibrant colors. Status text still communicates state without relying on color.
 
 ## Features and Behavior
 
@@ -37,13 +38,14 @@ The learner wants a record-book feel. Claim cards line up vertically and use dif
 - New users register once; returning users see their existing claims and friends.
 - Send a friend request using a user ID; after acceptance, add that friend to claims from the friend list.
 - Claim participation requires an account.
+- Forgotten passwords can be reset by email to the account's sign-in address. People can edit their own profile name, personal title, bio, and photo; friends can view these details and the earned rank.
 
 ### Claims and AI clarity
 
 - A creator sets a check date and selects friends; each participant submits an answer in their own words.
 - AI checks for vague, subjective, or untestable wording before the claim can lock and proposes a clear shared wording and one-line card title. "Tomorrow's weather will be awesome" should be rejected or rewritten into an objective condition because "awesome" means different things to different friends.
 - If AI rejects the claim, the creator can revise its topic. A topic revision asks everyone to submit a new answer for the revised wording; the final answer submission runs AI again automatically.
-- Original answers remain visible after locking. Participants do not need a separate approval step for AI's final wording; an invitee who does not want to take part can reject the invitation without affecting their score.
+- Original answers remain visible after locking. For five minutes after the first lock, and only before the check time, each participant may revise only their own answer. AI must accept the revised set of answers before it changes the record; the first lock time does not reset. Participants do not need a separate approval step for AI's final wording; an invitee who does not want to take part can reject the invitation without affecting their score.
 
 ### Due notice and settlement
 
@@ -62,7 +64,7 @@ The learner wants a record-book feel. Claim cards line up vertically and use dif
 - **First use:** registration precedes the home collection.
 - **No claims/friends:** the home and friend area need a clear starting action.
 - **Pending:** invited friends can submit their answer or decline. A declined invitation does not affect their score. The claim waits for the required answers before locking.
-- **Locked:** original answers and shared wording cannot be quietly changed.
+- **Locked:** a visible five-minute answer correction window is open to each participant; revisions are AI checked and visible to the group. After it closes, the answer and shared wording are permanent.
 - **Due:** the in-app notifications tab shows the claim and settlement becomes available.
 - **Disputed or unclear:** no scoring until a majority of a group agrees, except that the creator resolves a two-person tie.
 - **Settled:** the record shows the outcome and scores persist on return.

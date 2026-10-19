@@ -16,7 +16,7 @@ This implements `prd.md > The Core Journey` and preserves `scope.md > The Unique
 1. **Register:** email/password goes to Supabase Auth; a profile with a short public friend ID is created. A returning session opens the claim list.
 2. **Add a friend:** enter their public ID; Supabase records a request. The recipient accepts, after which both see each other in the friend panel.
 3. **Create a claim:** the creator enters a topic, future check date, and accepted friends. Supabase stores the invitation and an empty answer slot for each participant.
-4. **Answer and lock:** each participant saves a private draft answer or declines. The final answer submission automatically calls an authenticated Supabase Edge Function to ask Gemini for a clarity check and structured title, question, and normalized outcome choices. If it flags ambiguity, the app shows feedback and stays editable. Revising the topic clears prior draft answers so everyone responds to the new wording before another automatic check. If clear, the function stores the original answers and normalized choices and locks the claim before the check date.
+4. **Answer and lock:** each participant saves a private draft answer or declines. The final answer submission automatically calls an authenticated Supabase Edge Function to ask Gemini for a clarity check and structured title, question, and normalized outcome choices. If it flags ambiguity, the app shows feedback and stays editable. Revising the topic clears prior draft answers so everyone responds to the new wording before another automatic check. If clear, the function stores the answers and normalized choices and locks the claim before the check date. Each person can then correct only their own answer for up to five minutes, ending sooner if the claim becomes due; AI checks revisions automatically.
 5. **Notice and vote:** when the date is reached, a database query marks the locked claim as due in each participant's notifications tab. Each votes for one normalized choice or “none of these.” A majority of all active participants settles a group claim; when two disagree, the creator's vote settles it once both have voted.
 6. **Score:** the settled outcome remains attached to the original answers. A head-to-head query gives one point for every correct-versus-wrong pair on a shared claim, including group claims. A profile's correct-claim count determines its title. Reopening the app reads the same record.
 
@@ -40,13 +40,13 @@ No paid plan is required for the planned demo. Each free service has quotas; Sup
 
 ## Look and Feel
 
-Implements `prd.md > Screens and Layout` and `Look and Feel`: a record-book mood, vertically stacked claim cards with varied muted colors, concise one-line titles, and a friend side panel on wide screens. On phones, the friend panel becomes a reachable drawer or section. Status text and icons remain explicit so color alone never carries meaning. Typography should feel like a readable record rather than a generic dashboard.
+Implements `prd.md > Screens and Layout` and `Look and Feel`: a record-book mood, vertically stacked claim cards with distinct vibrant colors, concise one-line titles, and a friend side panel on wide screens. On phones, the friend panel becomes a reachable section. Status text and icons remain explicit so color alone never carries meaning. Typography should feel like a readable record rather than a generic dashboard.
 
 ## Components
 
 ### Account and Profile
 
-React screens for email/password registration and sign-in, profile name and friend ID, session restoration, and sign-out. Supabase Auth handles passwords; the `profiles` table contains only public app identity. Implements `prd.md > Accounts and friends` and `States and Boundaries`.
+React screens for email/password registration, sign-in, sign-in-email password recovery, profile name and friend ID, session restoration, and sign-out. The header opens the owner's profile; accepted friend names open read-only profiles. Owners may edit a personal title and bio and upload a 2 MB JPG/PNG/WebP photo to an owner-scoped public Supabase Storage bucket. The earned rank is calculated from scores. Supabase Auth handles passwords; the `profiles` table contains only public app identity. Implements `prd.md > Accounts and friends` and `States and Boundaries`.
 
 ### Friend Panel
 
@@ -54,11 +54,11 @@ Send a request by public ID, accept or decline incoming requests, and choose acc
 
 ### Claim Cards and Detail
 
-Home displays vertically stacked colored cards. Detail shows the topic, check date, invitation state, each original answer, AI's title/question, and the settled outcome. Draft answers can be edited only before locking; locked wording is immutable. Implements `prd.md > Claims and AI clarity` and `Screens and Layout`.
+Home displays vertically stacked colored cards. Detail shows the topic, check date, invitation state, each recorded answer, AI's title/question, and the settled outcome. Draft answers can be edited before locking. After the first lock, each participant may submit a revised answer until the earlier of five minutes or the check time; AI rechecks all answers, and a database transaction updates the answer and normalized choices together. The creator cannot revise the topic after lock. The `locked_at` deadline never resets. Implements `prd.md > Claims and AI clarity` and `Screens and Layout`.
 
 ### AI Clarity Function
 
-The authenticated `clarify-claim` Edge Function fetches the claim and current answers server-side, checks participation and future check date, asks Gemini for structured JSON, validates it, and either returns specific feedback or stores the final title/question/options and locked timestamp. It rejects subjective wording such as “weather will be awesome.” Only this function can write AI-approved lock fields. Implements `prd.md > Claims and AI clarity`.
+The authenticated `clarify-claim` Edge Function fetches the claim and current answers server-side, checks participation and future check date, asks Gemini for structured JSON, validates it, and either returns specific feedback or stores the final title/question/options and locked timestamp. It rejects subjective wording such as “weather will be awesome.” For a locked answer correction, it substitutes the proposed answer only for AI evaluation; a service-role-only database function checks the fixed deadline and revision number before atomically updating the record. Implements `prd.md > Claims and AI clarity`.
 
 ### Notifications and Settlement
 
@@ -70,10 +70,10 @@ A read-only database function computes a selected pair's score from settled shar
 
 ## Data Model
 
-- `profiles`: `id` (Auth user), `display_name`, unique short `friend_code`, creation time. Identity remains after app restart.
+- `profiles`: `id` (Auth user), `display_name`, unique short `friend_code`, personal `headline`, `bio`, owner-scoped `avatar_path`, creation time. Identity remains after app restart.
 - `friendships`: unordered user pair, requester, status (`pending`, `accepted`, `declined`), timestamps. One row per pair; only the addressee can accept.
-- `claims`: creator, initial topic, AI title/question, normalized outcome choices, check date, state (`collecting`, `locked`, `settled`), lock time, settled choice, timestamps.
-- `claim_members`: claim/user pair, invitation state, original answer, normalized choice, vote. One active member row per friend in a claim. Original answer becomes immutable at lock.
+- `claims`: creator, initial topic, AI title/question, normalized outcome choices, check date, state (`collecting`, `locked`, `settled`), first lock time, revision number, settled choice, timestamps.
+- `claim_members`: claim/user pair, invitation state, recorded answer, normalized choice, vote. One active member row per friend in a claim. An answer becomes immutable after the fixed correction window.
 
 Authenticated browser reads use Supabase Row Level Security (RLS): only participants read a claim and answers; only members of a friendship see its request; authenticated people may find a profile by public friend code. Browser writes are restricted to their own drafts and authorized requests. The Edge Function performs AI-approved locking with server credentials. Database functions validate and commit votes atomically. [RLS guide](https://supabase.com/docs/guides/database/postgres/row-level-security), [key safety](https://supabase.com/docs/guides/api/api-keys).
 
@@ -117,7 +117,7 @@ ONRECORD/
 
 - **In-app due notifications** instead of email or phone push: no scheduler or mail service, consistent with the learner's free and low-burden choice. Email is used for account sign-in, not scheduled reminders.
 - **Scores derived from settled records** instead of stored counters: one source of truth avoids duplicate awards and preserves the record-book idea.
-- **One live AI clarity call at locking** instead of continual AI analysis: keeps API use and failure modes small while preserving the required clarity gate.
+- **AI clarity calls at locking and on submitted answer corrections** instead of continual analysis: keeps API use bounded while preserving the required clarity gate.
 
 ## Decisions and Open Issues
 
