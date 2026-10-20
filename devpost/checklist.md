@@ -20,12 +20,12 @@ Build mode: fast
   Commit: `Add accounts and friend connections`
 
 - [ ] **2. Friends can lock an AI-checked claim**
-  Becomes usable: A creator chooses friends and a check date, everyone submits an answer, and a real AI check either explains vagueness or locks an immutable titled record. Invitees can decline.
+  Becomes usable: A creator chooses friends and a check date, everyone submits an answer, and a real AI check either explains vagueness or locks a titled record. Each person can correct their own answer for five minutes after lock; invitees can decline.
   Why now: This is On Record's distinctive moment, and the unfamiliar Gemini integration is tested before settlement work grows around it.
   PRD ref: `prd.md > The Core Journey` (steps 3-4), `prd.md > Claims and AI clarity`, `prd.md > States and Boundaries`
   Spec ref: `spec.md > Claim Cards and Detail`, `spec.md > AI Clarity Function`, `spec.md > External Services and Dependencies`
   Build: Add claim creation, invitations, answers, claim cards/detail, the authenticated AI function, structured-output validation, and lock behavior.
-  Verify (mechanical): Run `npm run build`; against the configured free-tier Gemini endpoint, show that “weather will be awesome” cannot lock and that a concrete two-person claim locks with a title, normalized choices, and unchanged original answers after reload.
+  Verify (mechanical): Run `npm run build`; against the configured free-tier Gemini endpoint, show that “weather will be awesome” cannot lock and that a concrete two-person claim locks with a title and normalized choices. Confirm an AI-checked answer correction persists after reload and closes at the fixed deadline.
   Learner check: Try one vague and one clear claim with a friend; inspect the locked record and tell me if the wording feels fair to both sides.
   Commit: `Add AI checked claim locking`
 
@@ -71,6 +71,7 @@ Reflection: not yet started.
 Activity mode: not yet started.
 
 ## Revisions
+- 2026-10-20: The learner tested sign-in-email password recovery live and reported that it works. The profile/photo and five-minute answer correction migrations, latest Edge Function deployment, and those new features' live tests are still unconfirmed. The handoff records the exact deployment and verification steps.
 - 2026-10-20: The learner added four requested behaviors: sign-in-email password recovery; editable, friend-visible profiles with personal title, bio, and photo; more vibrant claim cards; and an AI-checked correction window for each participant's own answer for five minutes after first lock (ending sooner at the due time). The creator cannot revise the topic after lock. New migrations 003/004 and an Edge Function redeploy are needed for live verification. The local TypeScript/Vite build passed; the new flows are not yet live verified. Existing slice checkboxes remain open until their learner checks are done.
 - 2026-10-20: The learner confirmed the claim-revision migration and updated AI function work live. They found that AI rejection feedback appeared above the claim and required scrolling; rejection now opens the answer editor, shows the feedback beside it, and scrolls there automatically. No extra AI action button was added. This UI change still needs the learner's live check.
 - 2026-10-20: Live vague-claim testing exposed that editing a rejected topic left old answers attached, so AI could still reject their subjective wording. The creator's topic revision now resets submitted drafts, and AI rechecks automatically after the final fresh answer. The manual check button was removed at the learner's request. A new SQL migration and Edge Function redeployment are required before verifying this repair live.
