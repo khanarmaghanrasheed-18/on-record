@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type FriendConnection, type Friendship, type Profile } from './lib/supabase'
 import ClaimWorkspace from './components/ClaimWorkspace'
@@ -10,6 +10,19 @@ import { UpdateNotice } from './components/InstallActions'
 import { isDue, listClaims } from './lib/claims'
 
 type Section = 'records' | 'friends' | 'notices' | 'scores' | 'profile'
+
+// Keep editing shortcuts inside auth fields while leaving the browser's native
+// copy, cut, paste, selection, and undo behavior intact.
+const clipboardInputProps = {
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
+    if ((event.ctrlKey || event.metaKey) && ['c', 'v', 'x'].includes(event.key.toLowerCase())) {
+      event.stopPropagation()
+    }
+  },
+  onCopy: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
+  onCut: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
+  onPaste: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
+}
 
 function AuthScreen() {
   const [mode, setMode] = useState<'register' | 'sign-in' | 'forgot'>('register')
@@ -65,8 +78,8 @@ function AuthScreen() {
         <p className="muted">{mode === 'register' ? 'One account keeps every prediction and rivalry together.' : mode === 'forgot' ? 'Enter your sign-in email. We will send a link to set a new password.' : 'Your friends and records are waiting.'}</p>
         <form onSubmit={submit}>
           {mode === 'register' && <label>Your name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} placeholder="What your friends call you" required autoComplete="name" /></label>}
-          <label>Email<input value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
-          {mode !== 'forgot' && <label>Password<input value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
+          <label>Email<input {...clipboardInputProps} value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
+          {mode !== 'forgot' && <label>Password<input {...clipboardInputProps} value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
           {message && <p className="form-message" role="status">{message}</p>}
           <button className="button primary full" disabled={busy}>{busy ? 'One moment…' : mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <span aria-hidden>↗</span></button>
         </form>
@@ -97,7 +110,7 @@ function RecoveryPassword({ onComplete }: { onComplete: () => void }) {
     finally { setBusy(false) }
   }
 
-  return <div className="auth-layout"><section className="auth-intro"><div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><div className="intro-copy"><span className="eyebrow light">ACCOUNT RECOVERY</span><h1>A fresh<br /><em>start.</em></h1><p>Set a new password and return to your record book.</p></div></section><section className="auth-form-side"><div className="auth-card"><div className="folio-line"><span>YOUR ACCOUNT</span><span>RECOVERY</span></div><h2>Choose a new password</h2><form onSubmit={submit}><label>New password<input type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label>{message && <p className="form-message" role="alert">{message}</p>}<button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <span aria-hidden>↗</span></button></form></div></section></div>
+  return <div className="auth-layout"><section className="auth-intro"><div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><div className="intro-copy"><span className="eyebrow light">ACCOUNT RECOVERY</span><h1>A fresh<br /><em>start.</em></h1><p>Set a new password and return to your record book.</p></div></section><section className="auth-form-side"><div className="auth-card"><div className="folio-line"><span>YOUR ACCOUNT</span><span>RECOVERY</span></div><h2>Choose a new password</h2><form onSubmit={submit}><label>New password<input {...clipboardInputProps} type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input {...clipboardInputProps} type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label>{message && <p className="form-message" role="alert">{message}</p>}<button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <span aria-hidden>↗</span></button></form></div></section></div>
 }
 
 function FriendsPanel({ connections, onNavigate, onOpenProfile }: { connections: FriendConnection[], onNavigate: () => void, onOpenProfile: (person: Profile) => void }) {
