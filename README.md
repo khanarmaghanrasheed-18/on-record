@@ -2,7 +2,7 @@
 
 An installable record book for friends' predictions. Friends connect once by public ID, write their original answers, let AI check the claim's clarity, and settle the outcome for head-to-head points. Group claims count for each correct-versus-wrong pair.
 
-**Build status:** the core code is present. Two accounts connected, a clear claim locked, and claim revision worked in live testing; settlement, scores, and phone installation still need verification. See [`devpost/checklist.md`](devpost/checklist.md) for the exact remaining checks.
+**Build status:** two accounts connected; an informal objective claim locked, a subjective claim was rejected, and an AI-checked answer correction closed after five minutes in live testing. Two-person scores update, while group settlement and phone installation still need verification. See [`devpost/checklist.md`](devpost/checklist.md) for the exact remaining checks.
 
 ## How the parts fit
 
@@ -16,7 +16,7 @@ An installable record book for friends' predictions. Friends connect once by pub
 1. Use Node.js 20.19+ and run `npm install`.
 2. Copy `.env.example` to `.env`. Fill in your Supabase project URL and **publishable** key. Never put a secret key or Gemini key in a `VITE_` variable; those values are shipped to browsers.
 3. In Supabase **SQL Editor**, run files from [`supabase/migrations`](supabase/migrations) in filename order, once each. For the existing On Record project, the owner reports all migrations through `202610200004_locked_answer_edits.sql` have run successfully; do not rerun them during local setup.
-4. In Supabase **Edge Functions**, deploy or redeploy `clarify-claim` using [`supabase/functions/clarify-claim/index.ts`](supabase/functions/clarify-claim/index.ts). The existing project needs this redeploy for the updated yes/no clarity guidance. If deploying in the Dashboard editor, keep its legacy **Verify JWT** gateway switch off; this function validates the signed-in user's token itself. The repo's [`supabase/config.toml`](supabase/config.toml) sets `verify_jwt = false` for CLI deployments.
+4. In Supabase **Edge Functions**, deploy or redeploy `clarify-claim` using [`supabase/functions/clarify-claim/index.ts`](supabase/functions/clarify-claim/index.ts). The existing project needs this redeploy for clean standalone outcome labels on future claims. If deploying in the Dashboard editor, keep its legacy **Verify JWT** gateway switch off; this function validates the signed-in user's token itself. The repo's [`supabase/config.toml`](supabase/config.toml) sets `verify_jwt = false` for CLI deployments.
 5. In **Edge Function Secrets**, add `GEMINI_API_KEY` privately. Do not paste it into chat or commit it. Supabase provides its own server keys to the function. The default model is `gemini-3.5-flash-lite`; `GEMINI_MODEL` is an optional server-side override.
 6. Run `npm run dev` and open the printed localhost URL. `npm run build` checks TypeScript and creates `dist/`; `npm run preview` serves that production build locally.
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import Toast from './Toast'
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>
@@ -22,6 +23,7 @@ if (typeof window !== 'undefined') {
 export function InstallAction() {
   const [promptEvent, setPromptEvent] = useState<InstallPrompt | null>(capturedPrompt)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState(false)
   const installed = window.matchMedia('(display-mode: standalone)').matches
 
   useEffect(() => {
@@ -32,17 +34,23 @@ export function InstallAction() {
   if (installed) return <p className="install-note">On Record is installed on this device.</p>
   return <div className="install-actions">
     <button className="button outlined" onClick={async () => {
-      if (promptEvent) {
-        await promptEvent.prompt()
-        const result = await promptEvent.userChoice
-        capturedPrompt = null
-        setPromptEvent(null)
-        setMessage(result.outcome === 'accepted' ? 'On Record was added to your device.' : 'You can install it later from your browser menu.')
-      } else {
-        setMessage('On iPhone, tap Share → Add to Home Screen. On Android, open your browser menu → Install app or Add to Home Screen. Installation requires the hosted HTTPS site.')
+      setError(false)
+      try {
+        if (promptEvent) {
+          await promptEvent.prompt()
+          const result = await promptEvent.userChoice
+          capturedPrompt = null
+          setPromptEvent(null)
+          setMessage(result.outcome === 'accepted' ? 'On Record was added to your device.' : 'You can install it later from your browser menu.')
+        } else {
+          setMessage('On iPhone, tap Share → Add to Home Screen. On Android, open your browser menu → Install app or Add to Home Screen. Phone installation requires the hosted HTTPS site.')
+        }
+      } catch {
+        setError(true)
+        setMessage('The install prompt did not open. Try Install app or Add to Home Screen from your browser menu.')
       }
     }}>Install on this device ↗</button>
-    {message && <p className="install-note" role="status">{message}</p>}
+    <Toast message={message} tone={error ? 'error' : 'info'} onDismiss={() => setMessage('')} />
   </div>
 }
 
