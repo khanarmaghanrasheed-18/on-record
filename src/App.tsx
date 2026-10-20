@@ -47,7 +47,10 @@ function AuthScreen() {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { display_name: name.trim() } },
+          options: {
+            data: { display_name: name.trim() },
+            emailRedirectTo: window.location.origin,
+          },
         })
         if (error) throw error
         setMessage(data.session ? 'Your account is ready.' : 'Check your email to confirm your account, then sign in.')
