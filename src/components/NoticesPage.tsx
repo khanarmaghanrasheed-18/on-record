@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, type Profile } from '../lib/supabase'
 import { displayDate, getClaimDetail, isDue, listClaims, type Claim, type ClaimDetail } from '../lib/claims'
+import { outcomeLabel } from '../lib/outcome'
 import SettlementSummary from './SettlementSummary'
 import Toast from './Toast'
 
 const noneChoice = 'NONE_OF_THESE'
-
-function choiceLabel(value: string) {
-  return value === noneChoice ? 'None of these outcomes' : value
-}
 
 export default function NoticesPage({ profile }: { profile: Profile }) {
   const [claims, setClaims] = useState<Claim[]>([])
@@ -61,7 +58,7 @@ export default function NoticesPage({ profile }: { profile: Profile }) {
       const updated = await getClaimDetail(detail.claim.id)
       setDetail(updated)
       setClaims(await listClaims())
-      setMessage(data === 'settled' ? `Result settled: ${choiceLabel(updated.claim.settled_option || '')}. See the point awards below.` : 'Your vote is saved. The record is waiting for agreement.')
+      setMessage(data === 'settled' ? `Result settled: ${outcomeLabel(updated.claim.settled_option)}. See the point awards below.` : 'Your vote is saved. The record is waiting for agreement.')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save your vote.') }
     finally { setBusy(false) }
   }
@@ -83,10 +80,10 @@ export default function NoticesPage({ profile }: { profile: Profile }) {
       {detail.claim.status === 'settled' ? <SettlementSummary detail={detail} /> : isDue(detail.claim) ? <>
         <p className="vote-guidance">Choose the result that actually happened. A group needs a majority; if two friends disagree, the creator’s vote settles it once both vote.</p>
         <div className="vote-options" role="radiogroup" aria-label="Actual outcome">
-          {[...(detail.claim.options || []), noneChoice].map(option => <label key={option} className={choice === option ? 'selected' : ''}><input type="radio" name="outcome" value={option} checked={choice === option} onChange={() => setChoice(option)} /><span>{choiceLabel(option)}</span></label>)}
+          {[...(detail.claim.options || []), noneChoice].map(option => <label key={option} className={choice === option ? 'selected' : ''}><input type="radio" name="outcome" value={option} checked={choice === option} onChange={() => setChoice(option)} /><span>{outcomeLabel(option)}</span></label>)}
         </div>
         <button className="button primary" disabled={busy || !choice} onClick={() => void vote()}>{busy ? 'Saving…' : 'Record my vote'}</button>
-        {detail.members.find(member => member.user_id === profile.id)?.vote && <p className="saved-vote">Your saved vote: {choiceLabel(detail.members.find(member => member.user_id === profile.id)?.vote || '')}. You can change it until the record settles.</p>}
+        {detail.members.find(member => member.user_id === profile.id)?.vote && <p className="saved-vote">Your saved vote: {outcomeLabel(detail.members.find(member => member.user_id === profile.id)?.vote || null)}. You can change it until the record settles.</p>}
       </> : <p>Voting opens at the check time.</p>}
       <div className="vote-positions"><h3>Original positions</h3>{detail.members.filter(member => member.invite_status === 'answered').map(member => <p key={member.user_id}><strong>{member.profile?.display_name || 'Friend'}:</strong> {member.original_answer}</p>)}</div>
     </section>}

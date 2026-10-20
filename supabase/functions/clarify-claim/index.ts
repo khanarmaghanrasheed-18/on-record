@@ -58,6 +58,24 @@ function validJudgment(value: unknown, members: Member[]): value is Judgment {
   return seen.size === expectedIds.size
 }
 
+function cleanOutcomeLabels(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value
+  const result = value as Partial<Judgment>
+  if (!result.clear || !Array.isArray(result.options) || !Array.isArray(result.matches)) return value
+  const clean = (option: string) => {
+    const description = option.trim().match(/^(?:yes|no)[,.:;!?]\s+(.+)$/i)?.[1]
+    return description ? description[0].toUpperCase() + description.slice(1) : option
+  }
+  const optionMap = new Map(result.options.filter((option): option is string => typeof option === 'string').map(option => [option, clean(option)]))
+  return {
+    ...result,
+    options: result.options.map(option => typeof option === 'string' ? clean(option) : option),
+    matches: result.matches.map(match => match && typeof match === 'object' && typeof match.option === 'string'
+      ? { ...match, option: optionMap.get(match.option) || match.option }
+      : match),
+  }
+}
+
 Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (request.method !== 'POST') return json({ error: 'Use POST' }, 405)
@@ -129,7 +147,7 @@ Deno.serve(async request => {
 
 Read each complete answer in relation to the topic. For a negative topic such as "the class will not happen," "yes" affirms the negative proposition and "no" denies it. If an answer also says "he will take the class" or "he will not take the class," use that full sentence to resolve the intended outcome; do not classify by the first yes/no token alone. Preserve each person's original words exactly. Give short, specific feedback only when a real ambiguity prevents settlement. Do not judge the real-world result now.
 
-If clear=true, produce a short neutral title, a question with fair settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Include a draw option only when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. When reviewing an answer edit, preserve the current title, question, and options if they remain fair. Return JSON only.
+If clear=true, produce a short neutral title, a question with fair settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Make each option a standalone description of what happens, such as "Class is held" and "Class is not held". Do not prefix a descriptive option with Yes or No. The options and question must describe the same event without reversing the topic's yes/no meaning. Include a draw option only when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. When reviewing an answer edit, preserve the current title, question, and options if they remain fair. Return JSON only.
 
 Check time: ${claim.due_at}
 Current topic: ${claim.topic}
@@ -153,7 +171,7 @@ Current original answers: ${JSON.stringify(members.map(member => ({ userId: memb
     const payload = await aiResponse.json()
     const content = payload.candidates?.[0]?.content?.parts?.find((part: { text?: string }) => part.text)?.text
     if (!content) throw new Error('Gemini returned no judgment')
-    judgment = JSON.parse(content)
+    judgment = cleanOutcomeLabels(JSON.parse(content))
   } catch (error) {
     console.error('Gemini check failed', error)
     return json({ error: 'AI checking is temporarily unavailable. Retry shortly; your current answer is unchanged.' }, 503)

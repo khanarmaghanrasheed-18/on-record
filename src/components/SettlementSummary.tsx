@@ -1,8 +1,5 @@
 import { type ClaimDetail } from '../lib/claims'
-
-function label(choice: string | null) {
-  return choice === 'NONE_OF_THESE' ? 'None of these outcomes' : choice || 'Unknown outcome'
-}
+import { outcomeLabel } from '../lib/outcome'
 
 export default function SettlementSummary({ detail }: { detail: ClaimDetail }) {
   if (detail.claim.status !== 'settled') return null
@@ -17,14 +14,14 @@ export default function SettlementSummary({ detail }: { detail: ClaimDetail }) {
 
   return <section className="paper-card settlement-summary" aria-label="Final result and points">
     <span className="eyebrow">FINAL RESULT</span>
-    <h2>{label(result)}</h2>
+    <h2>{outcomeLabel(result)}</h2>
     <p className="settlement-reason">{creatorTiebreak
-      ? `The two outcome votes disagreed, so the creator's vote (${label(creatorVote || null)}) decided the result.`
+      ? `The two outcome votes disagreed, so the creator's vote (${outcomeLabel(creatorVote || null)}) decided the result.`
       : 'The participants’ majority vote decided the result.'}</p>
     <div className="settlement-people">
       {members.map(member => <div key={member.user_id} className="settlement-person">
         <strong>{name(member)}</strong>
-        <span>Predicted: {label(member.normalized_choice)}</span>
+        <span>Predicted: {outcomeLabel(member.normalized_choice)}</span>
         <b className={correct.includes(member) ? 'prediction-correct' : 'prediction-wrong'}>{correct.includes(member) ? 'Correct' : 'Incorrect'}</b>
       </div>)}
     </div>
