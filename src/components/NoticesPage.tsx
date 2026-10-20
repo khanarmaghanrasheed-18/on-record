@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, type Profile } from '../lib/supabase'
 import { displayDate, getClaimDetail, isDue, listClaims, type Claim, type ClaimDetail } from '../lib/claims'
+import SettlementSummary from './SettlementSummary'
+import Toast from './Toast'
 
 const noneChoice = 'NONE_OF_THESE'
 
@@ -59,7 +61,7 @@ export default function NoticesPage({ profile }: { profile: Profile }) {
       const updated = await getClaimDetail(detail.claim.id)
       setDetail(updated)
       setClaims(await listClaims())
-      setMessage(data === 'settled' ? 'The group has settled this record.' : 'Your vote is saved. The record is waiting for agreement.')
+      setMessage(data === 'settled' ? `Result settled: ${choiceLabel(updated.claim.settled_option || '')}. See the point awards below.` : 'Your vote is saved. The record is waiting for agreement.')
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not save your vote.') }
     finally { setBusy(false) }
   }
@@ -72,13 +74,13 @@ export default function NoticesPage({ profile }: { profile: Profile }) {
     <div className="page-topline"><span className="eyebrow">DUE & UPCOMING</span><span>03 / NOTICES</span></div>
     <h1>Time to settle<span className="period">.</span></h1>
     <p className="page-lead">When a claim reaches its check time, everyone records the actual outcome here.</p>
-    {message && <p className="form-message" role="status">{message}</p>}
+    <Toast message={message} onDismiss={() => setMessage('')} />
     {detail && <section className="paper-card vote-card">
       <button className="back-link" onClick={() => { setDetail(null); setMessage('') }}>← All notices</button>
       <span className="eyebrow">{detail.claim.status === 'settled' ? 'FINAL RESULT' : 'THE QUESTION'}</span>
       <h2>{detail.claim.question || detail.claim.title}</h2>
       <p>Check time: {displayDate(detail.claim.due_at)}</p>
-      {detail.claim.status === 'settled' ? <div className="settled-result"><span>RECORDED OUTCOME</span><strong>{choiceLabel(detail.claim.settled_option || '')}</strong></div> : isDue(detail.claim) ? <>
+      {detail.claim.status === 'settled' ? <SettlementSummary detail={detail} /> : isDue(detail.claim) ? <>
         <p className="vote-guidance">Choose the result that actually happened. A group needs a majority; if two friends disagree, the creator’s vote settles it once both vote.</p>
         <div className="vote-options" role="radiogroup" aria-label="Actual outcome">
           {[...(detail.claim.options || []), noneChoice].map(option => <label key={option} className={choice === option ? 'selected' : ''}><input type="radio" name="outcome" value={option} checked={choice === option} onChange={() => setChoice(option)} /><span>{choiceLabel(option)}</span></label>)}

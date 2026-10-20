@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { supabase, type Profile } from '../lib/supabase'
 import Avatar from './Avatar'
 import { InstallAction } from './InstallActions'
+import Toast from './Toast'
 
 type Stats = { correct_claims: number; settled_claims: number; title: string }
 
@@ -104,7 +105,7 @@ export default function ProfilePage({ profile, own, onSaved, onBack, signOut }: 
     <div className="page-topline"><span className="eyebrow">{own ? 'ACCOUNT DETAILS' : 'FRIEND PROFILE'}</span><span>05 / PROFILE</span></div>
     {!own && <button className="back-link" onClick={onBack}>← Back to friends</button>}
     <h1>{own ? 'Your profile' : profile.display_name}<span className="period">.</span></h1>
-    {message && <p className="form-message" role="status">{message}</p>}
+    <Toast message={message} onDismiss={() => setMessage('')} />
     <div className="paper-card profile-card"><Avatar profile={profile} large /><div className="profile-identity"><span className="eyebrow">{stats?.title?.toUpperCase() || 'MEMBER OF THE RECORD'}</span><h2>{profile.display_name}</h2>{profile.headline && <strong className="profile-headline">{profile.headline}</strong>}<p>{profile.bio || (own ? 'Add a few words about yourself below.' : 'No bio yet.')}</p><small>{stats ? `${stats.correct_claims} correct calls · ${stats.settled_claims} settled records` : 'Records are being counted.'}</small>{own && <p>Your friend ID: <strong>{profile.friend_code}</strong></p>}</div></div>
     {own && <>
       <section className="paper-card profile-edit"><span className="eyebrow">MAKE IT YOURS</span><h2>Edit your profile</h2><div className="photo-actions"><label className="button outlined">{busy ? 'Working…' : 'Choose a profile photo'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => void uploadPhoto(event)} /></label>{profile.avatar_path && <button className="text-button" disabled={busy} onClick={() => void removePhoto()}>Remove photo</button>}</div><p className="muted">JPG, PNG, or WebP, up to 2 MB. Your photo is visible to people who open your profile.</p><form onSubmit={saveProfile}><label>Name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} required /></label><label>Personal title<input value={headline} onChange={event => setHeadline(event.target.value)} maxLength={60} placeholder="e.g. Derby night forecaster" /></label><label>About you<textarea value={bio} onChange={event => setBio(event.target.value)} maxLength={240} rows={4} placeholder="A few words for your friends" /></label><button className="button primary" disabled={busy}>Save profile</button></form></section>

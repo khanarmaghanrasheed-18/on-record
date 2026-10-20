@@ -107,6 +107,29 @@
 .mobile-nav button{position:relative}
 .mobile-count{position:absolute;top:7px;right:20%;border-radius:50%;background:#bd7754;color:#fff;min-width:15px;height:15px;display:grid;place-items:center;font-size:9px}
 
+.app-toast{position:fixed;z-index:50;right:22px;bottom:22px;display:flex;align-items:flex-start;gap:18px;width:min(460px,calc(100vw - 32px));padding:16px 18px;border:1px solid #b9d1bd;border-left:5px solid #2d7651;border-radius:6px;background:#f7fff6;color:#234437;box-shadow:0 14px 42px #142f2750}
+.app-toast.error{border-color:#e0b8a8;border-left-color:#aa452b;background:#fff4ee;color:#653c30}
+.app-toast>div{flex:1;min-width:0}
+.app-toast strong{display:block;font-size:12px;margin-bottom:5px}
+.app-toast p{font:13px/1.55 'DM Sans',sans-serif;margin:0;overflow-wrap:anywhere}
+.app-toast button{border:0;background:transparent;color:inherit;font-size:23px;line-height:1;padding:0 2px}
+.answer-checking{position:fixed;z-index:49;right:22px;bottom:22px;width:min(460px,calc(100vw - 32px));margin:0;border:1px solid #b9d1bd;border-left:5px solid #2d7651;border-radius:6px;background:#f7fff6;box-shadow:0 14px 42px #142f2750}
+.settlement-summary{margin:24px 0;border-color:#9abb9e;background:#edf5e9}
+.settlement-summary h2{font-size:clamp(26px,3vw,36px);color:#245139;margin:7px 0 10px}
+.settlement-reason{font-size:13px!important;line-height:1.6!important;color:#425d4b!important}
+.settlement-people{display:grid;gap:8px;margin:18px 0}
+.settlement-person{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:11px 12px;background:#fffefa;border:1px solid #d8e4d5;font-size:12px}
+.settlement-person>span{flex:1;min-width:160px;color:#556c59}
+.settlement-person>b{padding:4px 8px;border-radius:3px;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+.prediction-correct{background:#d8ebd4;color:#255538}
+.prediction-wrong{background:#f5ddd5;color:#8a4231}
+.settlement-points{border-top:1px solid #c8dcc7;padding-top:14px;font-size:13px;line-height:1.6}
+.settlement-points>strong{display:block;margin-bottom:6px}
+.settlement-points ul{margin:0;padding-left:19px}
+.settlement-points p{margin:0!important}
+.score-results-link{margin:-14px 0 30px}
+@media(max-width:760px){.app-toast,.answer-checking{right:16px;bottom:78px}.settlement-person>span{min-width:100%;order:3}}
+
 /* Richer ledger covers and member profiles. */
 .record-card{background:#17634f;border-color:#17634f;color:#fff;box-shadow:0 5px 15px #133d2919;transition:transform .15s,box-shadow .15s}
 .record-card.color-1{background:#a9432d;border-color:#a9432d;color:#fff}

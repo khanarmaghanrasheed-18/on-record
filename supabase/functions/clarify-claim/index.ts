@@ -125,7 +125,18 @@ Deno.serve(async request => {
     required: ['clear', 'feedback', 'title', 'question', 'options', 'matches'],
   }
 
-  const instructions = `You are a strict referee for a friends' prediction record book. Check only the current topic and current answers below. Decide whether this upcoming claim can be settled objectively at the check time. Return clear=false if the topic or any answer is subjective, vague, not measurable, about a different event, or impossible to map fairly. Give specific, actionable feedback identifying what is missing: for example a location, measured quantity, time window, evidence source, or an answer that does not fit the topic. Do not repeat a generic rejection if the current wording is measurable. Do not judge the real-world result now. Do not change or invent an original answer. If clear=true: produce a short neutral title, a precise question with settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Include a draw option when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. When reviewing an answer edit, preserve the current title, question, and options if they remain fair. Return JSON only.\n\nCheck time: ${claim.due_at}\nCurrent topic: ${claim.topic}\nCurrent title: ${claim.title || '(not set)'}\nCurrent question: ${claim.question || '(not set)'}\nCurrent options: ${JSON.stringify(claim.options || [])}\nCurrent original answers: ${JSON.stringify(members.map(member => ({ userId: member.user_id, answer: member.original_answer })))}`
+  const instructions = `You are a practical referee for a friends' prediction record book. Check only the current topic and current answers below. The aim is a fair, objectively observable result by the check time, not formal wording. Accept an informal but identifiable yes/no event, such as whether a shared class happens today. Do not demand a full instructor name, room, evidence source, or numerical threshold when the participants' shared context makes the event settleable. Use the check time as the settlement deadline unless the topic says otherwise; do not silently change the date mentioned in the topic. Still reject subjective claims (such as "the weather will be awesome"), genuinely unclear events, answers about different events, and answers that cannot map fairly.
+
+Read each complete answer in relation to the topic. For a negative topic such as "the class will not happen," "yes" affirms the negative proposition and "no" denies it. If an answer also says "he will take the class" or "he will not take the class," use that full sentence to resolve the intended outcome; do not classify by the first yes/no token alone. Preserve each person's original words exactly. Give short, specific feedback only when a real ambiguity prevents settlement. Do not judge the real-world result now.
+
+If clear=true, produce a short neutral title, a question with fair settlement criteria, two to six mutually exclusive outcome options, and one match for every active userId mapping the original answer to one exact option string. Include a draw option only when relevant. If any answer cannot be mapped, return clear=false. Keep feedback empty when clear=true. When reviewing an answer edit, preserve the current title, question, and options if they remain fair. Return JSON only.
+
+Check time: ${claim.due_at}
+Current topic: ${claim.topic}
+Current title: ${claim.title || '(not set)'}
+Current question: ${claim.question || '(not set)'}
+Current options: ${JSON.stringify(claim.options || [])}
+Current original answers: ${JSON.stringify(members.map(member => ({ userId: member.user_id, answer: member.original_answer })))}`
 
   let judgment: unknown
   try {

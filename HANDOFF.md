@@ -4,9 +4,11 @@
 
 Continue the existing React/Vite PWA in this repository; do not restart the project. The user's latest live report is: **password recovery through the sign-in email works**. The user is moving chats and requested this complete handoff. The most recent feature commit before this handoff is `2e53730` (`Add recovery profiles and timed answer corrections`), pushed to `main` at <https://github.com/khanarmaghanrasheed-18/on-record>. Use `git status` and the latest commit to see whether any newer work has landed.
 
-**Latest setup report:** The owner confirmed they ran `202610200003_profiles_photos.sql` and `202610200004_locked_answer_edits.sql` in order and redeployed the latest `clarify-claim/index.ts`, all without errors. These are ready for live feature testing; a successful deployment does not itself verify the new flows.
+**Latest setup report:** The owner confirmed they ran `202610200003_profiles_photos.sql` and `202610200004_locked_answer_edits.sql` in order and deployed the answer-edit version of `clarify-claim/index.ts`, all without errors. The new yes/no referee prompt added after that report still needs deployment.
 
 The auth email, sign-in password, and recovery password fields now retain Ctrl/Cmd+C, V, and X for native browser editing. This has passed a local build but still needs the owner's browser check; no Supabase change is involved.
+
+Latest learner feedback confirms auth clipboard shortcuts, profile photo/bio visibility to a friend, answer editing, and score updates work live. They found Gemini too strict for informal but observable OOP-class yes/no wording, messages hard to see after scrolling, and settled results unclear. The next code update softens only the Gemini referee instructions, adds fixed dismissible notifications, and shows the deciding vote, correct/incorrect predictions, and exact point awards in settled Records/Notices. The Edge Function prompt change requires another `clarify-claim` redeploy; UI changes require only a page refresh. The revised Gemini behavior is not yet live verified.
 
 ## How to work with the owner
 
@@ -31,7 +33,7 @@ Profiles are opened from the top-right header, Friends, or Scores. The owner can
 - The original five migrations through `202610200002_claim_revisions.sql` ran successfully. The earlier `clarify-claim` function was deployed with legacy **Verify JWT off** and `GEMINI_API_KEY` stored privately as an Edge Function secret.
 - A clear two-person coin-flip claim locked with both answers. Gemini rejected a subjective “weather will be awesome” claim. The creator's revised-topic/fresh-answer flow worked. The saved-answer confirmation card was seen live.
 - **Password recovery email and reset logic work**, per the user's latest report. Do not re-test unless a later change affects it.
-- These reports do not establish live settlement/scoring, profile editing/photo visibility, five-minute post-lock edits, inline AI error location, hosted deployment, or phone installation.
+- Later learner testing confirmed score updates, friend-visible profile photo/bio, post-lock answer editing, and Ctrl+C/V/X in auth fields. Group scoring, revised Gemini wording, hosted deployment, and phone installation remain unverified.
 
 ## Implementation and setup state
 
@@ -39,15 +41,15 @@ Profiles are opened from the top-right header, Friends, or Scores. The owner can
 - Supabase project ref: `skgajmkjiqbbplwvxqml`; project URL: `https://skgajmkjiqbbplwvxqml.supabase.co`. The local ignored `.env` has the public URL/publishable key; never commit it. Supabase CLI, Docker, psql, and gh were unavailable earlier; Git pushing worked with an escalated terminal command.
 - `src/App.tsx`: auth, reset-password UI, shell, friends, profile navigation. `src/components/ProfilePage.tsx` and `Avatar.tsx`: profile editing/view, photo upload. `src/components/ClaimWorkspace.tsx`: claims, AI feedback, saved-answer state, locked-answer correction. `src/components/NoticesPage.tsx` and `ScoresPage.tsx`: settlement and pairwise scores. `src/lib/claims.ts` and `supabase.ts`: client/data helpers. `src/styles.css`: responsive record-book styling and vibrant cards.
 - Migrations `202610190001` through `202610200004` are reported live. Migration 003 adds profile columns and a public owner-scoped photo bucket; 004 enforces the five-minute correction window.
-- `supabase/functions/clarify-claim/index.ts` now accepts a proposed answer revision, rechecks it with Gemini, and calls a service-role-only atomic RPC. The owner reports the latest code deployed without errors. Keep Verify JWT off: the function calls `auth.getUser` to verify the session. The existing Gemini secret persists.
+- `supabase/functions/clarify-claim/index.ts` accepts a proposed answer revision, rechecks it with Gemini, and calls a service-role-only atomic RPC. The owner deployed the answer-edit version; the newer yes/no prompt needs redeployment. Keep Verify JWT off: the function calls `auth.getUser` to verify the session. The existing Gemini secret persists.
 - The app uses Supabase Auth's `resetPasswordForEmail` and `updateUser`; the user tested this successfully. On a future hosted deployment, allow the hosted origin under Supabase Authentication → URL Configuration so reset and confirmation links return to the app.
 - The feature commit passed `npm.cmd run build` (TypeScript and Vite; PWA output generated). This does **not** validate the new SQL against the live database, the latest Edge Function against Gemini, or the phone UI. Static PWA manifest/icons/service worker are implemented; no confirmed Cloudflare Pages deployment.
 - `README.md` has setup, deployment, demo steps, scoring rules, and photo privacy. The photo bucket is public for delivery; anyone with a photo URL can view that image. The PWA caches static assets, not account/claim responses.
 
 ## Next checkpoint, in order
 
-1. Check `git status`, the latest commit, and `devpost/checklist.md`. The owner reports migrations 003/004 and the latest Edge Function deployed without errors; avoid repeating setup. Do not open their browser.
-2. Have the owner create a **new** clear claim with a due time more than five minutes away. Both accounts should see their own correction option. Edit one answer, let AI check on submit, reload both accounts, and verify the revised answer and normalized choice. Check that edits close at five minutes or the due time, whichever comes first. Test vague-answer feedback next to the editor.
+1. Check `git status`, the latest commit, and `devpost/checklist.md`. Migrations 003/004 are live; do not rerun them. The new yes/no Edge Function prompt needs deployment before retesting AI. The owner has now authorized local-app browser testing; the earlier browser restriction remains for unrelated sites.
+2. Have the owner redeploy the current `supabase/functions/clarify-claim/index.ts` and test one informal but observable yes/no claim plus one subjective claim. Confirm rejection feedback appears as a fixed popup and the answer editor opens. The previous answer-edit flow worked live.
 3. Have the owner test own profile name/title/bio/photo and the friend's read-only view; inspect any error they report. Brighter card colors should also be visible.
 4. Complete the existing core journey: due notice, two-person voting/creator tiebreak, group majority, pairwise scores and earned ranks, including reload without duplicate points. Resolve any issues before ticking the relevant checklist boxes.
 5. Deploy the GitHub repository to Cloudflare Pages as described in `README.md`, set only public build variables, configure Supabase Auth redirect URLs, and have the owner test installation and navigation on a phone. Do the final learner review, code tour/app map, and then `6-ship` submission work.

@@ -6,6 +6,7 @@ import NoticesPage from './components/NoticesPage'
 import ScoresPage from './components/ScoresPage'
 import ProfilePage from './components/ProfilePage'
 import Avatar from './components/Avatar'
+import Toast from './components/Toast'
 import { UpdateNotice } from './components/InstallActions'
 import { isDue, listClaims } from './lib/claims'
 
@@ -80,7 +81,7 @@ function AuthScreen() {
           {mode === 'register' && <label>Your name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} placeholder="What your friends call you" required autoComplete="name" /></label>}
           <label>Email<input {...clipboardInputProps} value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
           {mode !== 'forgot' && <label>Password<input {...clipboardInputProps} value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
-          {message && <p className="form-message" role="status">{message}</p>}
+          <Toast message={message} onDismiss={() => setMessage('')} />
           <button className="button primary full" disabled={busy}>{busy ? 'One moment…' : mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <span aria-hidden>↗</span></button>
         </form>
         <button className="text-button auth-toggle" onClick={() => { setMode(mode === 'register' ? 'sign-in' : 'register'); setMessage('') }}>{mode === 'register' ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>
@@ -110,7 +111,7 @@ function RecoveryPassword({ onComplete }: { onComplete: () => void }) {
     finally { setBusy(false) }
   }
 
-  return <div className="auth-layout"><section className="auth-intro"><div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><div className="intro-copy"><span className="eyebrow light">ACCOUNT RECOVERY</span><h1>A fresh<br /><em>start.</em></h1><p>Set a new password and return to your record book.</p></div></section><section className="auth-form-side"><div className="auth-card"><div className="folio-line"><span>YOUR ACCOUNT</span><span>RECOVERY</span></div><h2>Choose a new password</h2><form onSubmit={submit}><label>New password<input {...clipboardInputProps} type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input {...clipboardInputProps} type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label>{message && <p className="form-message" role="alert">{message}</p>}<button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <span aria-hidden>↗</span></button></form></div></section></div>
+  return <div className="auth-layout"><section className="auth-intro"><div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><div className="intro-copy"><span className="eyebrow light">ACCOUNT RECOVERY</span><h1>A fresh<br /><em>start.</em></h1><p>Set a new password and return to your record book.</p></div></section><section className="auth-form-side"><div className="auth-card"><div className="folio-line"><span>YOUR ACCOUNT</span><span>RECOVERY</span></div><h2>Choose a new password</h2><form onSubmit={submit}><label>New password<input {...clipboardInputProps} type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input {...clipboardInputProps} type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label><Toast message={message} onDismiss={() => setMessage('')} tone="error" /><button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <span aria-hidden>↗</span></button></form></div></section></div>
 }
 
 function FriendsPanel({ connections, onNavigate, onOpenProfile }: { connections: FriendConnection[], onNavigate: () => void, onOpenProfile: (person: Profile) => void }) {
@@ -169,7 +170,7 @@ function FriendsPage({ profile, connections, refresh, onOpenProfile }: { profile
       <section className="paper-card friend-add"><span className="eyebrow">INVITE BY ID</span><h2>Add a friend</h2><p>Ask your friend for their eight-character ID.</p><form className="code-form" onSubmit={sendRequest}><label className="sr-only" htmlFor="friend-code">Friend ID</label><input id="friend-code" value={code} onChange={event => setCode(event.target.value.toUpperCase())} maxLength={8} minLength={8} pattern="[A-Fa-f0-9]{8}" placeholder="E.G. A1B2C3D4" required /><button className="button primary" disabled={busy}>Send request</button></form><div className="your-code"><span>YOUR ID</span><strong>{profile.friend_code}</strong><button onClick={async () => { await navigator.clipboard.writeText(profile.friend_code); setMessage('Your ID was copied.') }}>Copy</button></div></section>
       <section className="paper-card requests"><span className="eyebrow">INCOMING</span><h2>Requests <span className="count-pill">{incoming.length}</span></h2>{incoming.length ? incoming.map(connection => <div className="request-row" key={connection.id}><span className="avatar">{connection.person.display_name[0]}</span><div><strong>{connection.person.display_name}</strong><small>Wants to join your circle</small></div><button className="button small primary" disabled={busy} onClick={() => respond(connection.id, true)}>Accept</button><button className="text-button" disabled={busy} onClick={() => respond(connection.id, false)}>Decline</button></div>) : <p className="muted">No requests right now.</p>}</section>
     </div>
-    {message && <p className="form-message" role="status">{message}</p>}
+    <Toast message={message} onDismiss={() => setMessage('')} />
     <section className="connection-list"><div className="section-head"><h2>Connected friends</h2><span>{accepted.length} TOTAL</span></div>{accepted.length ? accepted.map(connection => <button className="connection-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)}><Avatar profile={connection.person} /><strong>{connection.person.display_name}</strong><span className="muted">{connection.person.headline || connection.person.friend_code}</span><span className="connection-status">VIEW PROFILE ↗</span></button>) : <div className="empty-line">No friends yet. Share your ID or send your first request.</div>}{outgoing.length > 0 && <><h3 className="subsection-title">Sent requests</h3>{outgoing.map(connection => <div className="connection-row" key={connection.id}><Avatar profile={connection.person} /><strong>{connection.person.display_name}</strong><span className="muted">Awaiting a response</span><span className="connection-status waiting">PENDING</span></div>)}</>}</section>
   </div>
 }
@@ -260,7 +261,7 @@ function App() {
         {section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}
         {section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} onOpenProfile={openProfile} />}
         {section === 'notices' && <NoticesPage profile={profile} />}
-        {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} />}
+        {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} onOpenNotices={() => setSection('notices')} />}
         {section === 'profile' && <ProfilePage profile={visibleProfile} own={!viewedProfile} onSaved={refresh} onBack={() => setSection('friends')} signOut={() => void activeClient.auth.signOut()} />}
       </main>
       <FriendsPanel connections={connections} onNavigate={() => setSection('friends')} onOpenProfile={openProfile} />

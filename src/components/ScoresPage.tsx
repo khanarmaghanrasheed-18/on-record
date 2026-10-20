@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, type FriendConnection, type Profile } from '../lib/supabase'
 import Avatar from './Avatar'
+import Toast from './Toast'
 
 type Score = { my_points: number; friend_points: number; shared_claims: number }
 type Stats = { correct_claims: number; settled_claims: number; title: string }
 
-export default function ScoresPage({ profile, connections, onOpenProfile }: { profile: Profile; connections: FriendConnection[]; onOpenProfile: (person: Profile) => void }) {
+export default function ScoresPage({ profile, connections, onOpenProfile, onOpenNotices }: { profile: Profile; connections: FriendConnection[]; onOpenProfile: (person: Profile) => void; onOpenNotices: () => void }) {
   const friends = connections.filter(connection => connection.status === 'accepted').map(connection => connection.person)
   const [scores, setScores] = useState<Record<string, Score>>({})
   const [ranks, setRanks] = useState<Record<string, Stats>>({})
@@ -47,8 +48,9 @@ export default function ScoresPage({ profile, connections, onOpenProfile }: { pr
     <div className="page-topline"><span className="eyebrow">THE RIVALRY LEDGER</span><span>04 / SCORES</span></div>
     <h1>Friendly rivalries<span className="period">.</span></h1>
     <p className="page-lead">A correct call earns one point against each friend who called it wrong. Group records count for every pair.</p>
-    {message && <p className="form-message" role="status">{message}</p>}
+    <Toast message={message} onDismiss={() => setMessage('')} />
     <div className="paper-card rank-summary"><span className="eyebrow">YOUR CURRENT TITLE</span><h2>{mine?.title || (loading ? 'Opening the ledger…' : 'Newcomer')}</h2><p>{mine ? `${mine.correct_claims} correct calls across ${mine.settled_claims} settled records` : 'Correct calls build your title.'}</p></div>
+    <button className="button outlined score-results-link" onClick={onOpenNotices}>See settled results and point awards ↗</button>
     <div className="section-head"><h2>Head to head</h2><span>{friends.length} FRIENDS</span></div>
     {friends.length ? <div className="score-list">{friends.map(friend => {
       const score = scores[friend.id]
