@@ -54,7 +54,7 @@ export default function ScoresPage({ profile, connections, onOpenProfile, onOpen
     <div className="section-head"><h2>Head to head</h2><span>{friends.length} FRIENDS</span></div>
     {friends.length ? <div className="score-list">{friends.map(friend => {
       const score = scores[friend.id]
-      return <div className="score-row" key={friend.id}><button className="score-person profile-link" onClick={() => onOpenProfile(friend)}><Avatar profile={friend} /><span><strong>{friend.display_name}</strong><small>{ranks[friend.id]?.title || 'Friend'} · {score?.shared_claims ?? 0} shared settled records</small></span></button><div className="score-numbers"><span><small>YOU</small><strong>{score?.my_points ?? 0}</strong></span><em>—</em><span><small>{friend.display_name.toUpperCase()}</small><strong>{score?.friend_points ?? 0}</strong></span></div></div>
+      return <div className="score-row" key={friend.id}><button className="score-person profile-link" onClick={() => onOpenProfile(friend)}><Avatar profile={friend} /><span><strong>{friend.display_name}</strong><small>{loading ? 'Opening scores…' : `${ranks[friend.id]?.title || 'Friend'} · ${score?.shared_claims ?? '—'} shared settled records`}</small></span></button><div className="score-numbers"><span><small>YOU</small><strong>{score?.my_points ?? '—'}</strong></span><em>—</em><span><small>{friend.display_name.toUpperCase()}</small><strong>{score?.friend_points ?? '—'}</strong></span></div></div>
     })}</div> : <div className="empty-line">Add a friend to start a rivalry.</div>}
     <div className="hint-row"><span>✳</span><p>If both friends were right, or both were wrong, their score stays the same.</p></div>
   </div>
