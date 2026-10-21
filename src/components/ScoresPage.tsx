@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase, type FriendConnection, type Profile } from '../lib/supabase'
 import Avatar from './Avatar'
 import Toast from './Toast'
+import CountUp from './CountUp'
+import RankLadder from './RankLadder'
+import Icon from './Icon'
 
 type Score = { my_points: number; friend_points: number; shared_claims: number }
 type Stats = { correct_claims: number; settled_claims: number; title: string }
@@ -45,17 +48,39 @@ export default function ScoresPage({ profile, connections, onOpenProfile, onOpen
   }, [refresh])
 
   return <div className="page-content scores-page">
-    <div className="page-topline"><span className="eyebrow">THE RIVALRY LEDGER</span><span>04 / SCORES</span></div>
-    <h1>Friendly rivalries<span className="period">.</span></h1>
-    <p className="page-lead">A correct call earns one point against each friend who called it wrong. Group records count for every pair.</p>
+    <header className="page-hero">
+      <span className="eyebrow">Scores</span>
+      <h1>Friendly rivalries<span className="period">.</span></h1>
+      <p className="page-lead">A correct call earns one point against each friend who called it wrong. Group records count for every pair.</p>
+    </header>
     <Toast message={message} onDismiss={() => setMessage('')} />
-    <div className="paper-card rank-summary"><span className="eyebrow">YOUR CURRENT TITLE</span><h2>{mine?.title || (loading ? 'Opening the ledger…' : 'Newcomer')}</h2><p>{mine ? `${mine.correct_claims} correct calls across ${mine.settled_claims} settled records` : 'Correct calls build your title.'}</p></div>
-    <button className="button outlined score-results-link" onClick={onOpenNotices}>See settled results and point awards ↗</button>
-    <div className="section-head"><h2>Head to head</h2><span>{friends.length} FRIENDS</span></div>
-    {friends.length ? <div className="score-list">{friends.map(friend => {
+    <section className="card rank-summary">
+      <div className="rank-head">
+        <div><span className="eyebrow">Your current title</span><h2>{mine?.title || (loading ? 'Opening the ledger…' : 'Newcomer')}</h2><p>{mine ? `${mine.correct_claims} correct calls across ${mine.settled_claims} settled records` : 'Correct calls build your title.'}</p></div>
+        <span className="trophy" aria-hidden="true"><Icon name="scores" size={34} /></span>
+      </div>
+      {mine && <RankLadder correct={mine.correct_claims} title={mine.title} />}
+    </section>
+    <button className="button outlined score-results-link" onClick={onOpenNotices}>See settled results and point awards <Icon name="arrow" size={16} /></button>
+    <div className="section-head"><h2>Head to head</h2><span className="tag">{friends.length} friends</span></div>
+    {friends.length ? <div className="score-list">{friends.map((friend, index) => {
       const score = scores[friend.id]
-      return <div className="score-row" key={friend.id}><button className="score-person profile-link" onClick={() => onOpenProfile(friend)}><Avatar profile={friend} /><span><strong>{friend.display_name}</strong><small>{loading ? 'Opening scores…' : `${ranks[friend.id]?.title || 'Friend'} · ${score?.shared_claims ?? '—'} shared settled records`}</small></span></button><div className="score-numbers"><span><small>YOU</small><strong>{score?.my_points ?? '—'}</strong></span><em>—</em><span><small>{friend.display_name.toUpperCase()}</small><strong>{score?.friend_points ?? '—'}</strong></span></div></div>
-    })}</div> : <div className="empty-line">Add a friend to start a rivalry.</div>}
-    <div className="hint-row"><span>✳</span><p>If both friends were right, or both were wrong, their score stays the same.</p></div>
+      const total = score ? score.my_points + score.friend_points : 0
+      const share = score && total ? score.my_points / total : 0.5
+      const lead = !score ? '' : score.my_points === score.friend_points ? (total ? 'All square' : 'No points yet') : score.my_points > score.friend_points ? `You lead by ${score.my_points - score.friend_points}` : `${friend.display_name} leads by ${score.friend_points - score.my_points}`
+      return <div className="score-row" key={friend.id} style={{ animationDelay: `${index * 60}ms` }}>
+        <button className="score-person profile-link" onClick={() => onOpenProfile(friend)}><Avatar profile={friend} /><span><strong>{friend.display_name}</strong><small>{loading ? 'Opening scores…' : `${ranks[friend.id]?.title || 'Friend'} · ${score?.shared_claims ?? '—'} shared settled records`}</small></span></button>
+        <div className="versus">
+          <div className="score-numbers">
+            <span className="side me"><small>You</small><strong>{score ? <CountUp value={score.my_points} /> : '—'}</strong></span>
+            <em>vs</em>
+            <span className="side them"><small>{friend.display_name}</small><strong>{score ? <CountUp value={score.friend_points} /> : '—'}</strong></span>
+          </div>
+          <div className="tug" aria-hidden="true"><span className="tug-me" style={{ transform: `scaleX(${share})` }} /><span className="tug-knot" style={{ left: `${share * 100}%` }} /></div>
+          {lead && <p className={`lead-line${score && score.my_points > score.friend_points ? ' winning' : ''}`}>{lead}</p>}
+        </div>
+      </div>
+    })}</div> : <div className="empty-state"><Icon name="friends" size={32} /><p>Add a friend to start a rivalry.</p></div>}
+    <p className="hint-row"><Icon name="spark" size={16} /> If both friends were right, or both were wrong, their score stays the same.</p>
   </div>
 }

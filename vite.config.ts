@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'On Record',
         short_name: 'On Record',
         description: 'A shared record book for friends’ predictions.',
-        theme_color: '#23483a',
-        background_color: '#f7f4ec',
+        theme_color: '#17141f',
+        background_color: '#17141f',
         display: 'standalone',
         start_url: '/',
         scope: '/',
@@ -25,6 +25,12 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png}'],
         navigateFallback: '/index.html',
+        // Fonts only: account and claim data are never cached.
+        runtimeCaching: [{
+          urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+          handler: 'CacheFirst',
+          options: { cacheName: 'google-fonts', expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+        }],
       },
     }),
   ],

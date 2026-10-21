@@ -10,21 +10,20 @@ ROOT.mkdir(exist_ok=True)
 
 def icon(size: int) -> None:
     scale = size / 512
-    image = Image.new("RGB", (size, size), "#23483a")
+    image = Image.new("RGB", (size, size), "#17141f")
     draw = ImageDraw.Draw(image)
 
-    def box(values: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-        return tuple(round(value * scale) for value in values)
+    def circle(cx: float, cy: float, r: float, **style) -> None:
+        draw.ellipse(tuple(round(v * scale) for v in (cx - r, cy - r, cx + r, cy + r)), **style)
 
-    # A ledger with two pages and the terracotta On Record mark.
-    draw.rounded_rectangle(box((115, 112, 397, 400)), radius=round(26 * scale),
-                           outline="#f7ebd8", width=max(2, round(18 * scale)))
-    draw.line(box((256, 131, 256, 380)), fill="#f7ebd8", width=max(2, round(13 * scale)))
-    draw.line(box((145, 165, 226, 165)), fill="#f7ebd8", width=max(2, round(10 * scale)))
-    draw.line(box((145, 205, 222, 205)), fill="#f7ebd8", width=max(2, round(10 * scale)))
-    draw.line(box((286, 165, 367, 165)), fill="#f7ebd8", width=max(2, round(10 * scale)))
-    draw.line(box((290, 205, 367, 205)), fill="#f7ebd8", width=max(2, round(10 * scale)))
-    draw.ellipse(box((342, 335, 423, 416)), fill="#cb7954")
+    # A vinyl disc inside the maskable safe zone, with grooves, a volt label,
+    # and the coral "recording" light.
+    circle(256, 256, 190, fill="#2a2536")
+    for radius in (172, 150, 128):
+        circle(256, 256, radius, outline="#3a3548", width=max(1, round(5 * scale)))
+    circle(256, 256, 84, fill="#c6f432")
+    circle(256, 256, 18, fill="#17141f")
+    circle(318, 214, 22, fill="#ff6a3d")
     image.save(ROOT / f"icon-{size}.png", optimize=True)
 
 

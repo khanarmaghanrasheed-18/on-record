@@ -4,8 +4,24 @@ import { checkAndLockClaim, displayDate, getClaimDetail, isDue, listClaims, type
 import { outcomeLabel } from '../lib/outcome'
 import Toast from './Toast'
 import SettlementSummary from './SettlementSummary'
+import Avatar from './Avatar'
+import CountUp from './CountUp'
+import Icon, { Disc, type IconName } from './Icon'
 
 type View = 'list' | 'new' | 'detail'
+type NextStep = { icon: IconName; title: string; text: string; tone: string; action?: { label: string; run: () => void } }
+
+const cardTones = ['lime', 'coral', 'cobalt', 'grape']
+const steps = ['Answers in', 'AI locked', 'Check time', 'Settled']
+
+// The one-line status and next action shown on each record card.
+function recordState(claim: Claim, now: number): { tone: string; label: string; icon: IconName; next: string } {
+  if (claim.status === 'settled') return { tone: 'settled', label: 'Settled', icon: 'check', next: `Result: ${outcomeLabel(claim.settled_option)}` }
+  if (isDue(claim)) return { tone: 'due', label: 'Vote now', icon: 'vote', next: 'Check time reached. Record the result.' }
+  if (claim.status === 'locked') return { tone: 'locked', label: 'Locked', icon: 'lock', next: `Result due ${displayDate(claim.due_at)}` }
+  if (new Date(claim.due_at).getTime() <= now) return { tone: 'stalled', label: 'Needs a date', icon: 'clock', next: 'The check time passed before it locked.' }
+  return { tone: 'collecting', label: 'Recording', icon: 'pen', next: `Answers close ${displayDate(claim.due_at)}` }
+}
 
 function readyToLock(detail: ClaimDetail) {
   const active = detail.members.filter(member => member.invite_status !== 'declined')
@@ -16,7 +32,7 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : 'Something went wrong. Try again.'
 }
 
-export default function ClaimWorkspace({ profile, connections }: { profile: Profile; connections: FriendConnection[] }) {
+export default function ClaimWorkspace({ profile, connections, onOpenNotices }: { profile: Profile; connections: FriendConnection[]; onOpenNotices?: () => void }) {
   const friends = connections.filter(connection => connection.status === 'accepted').map(connection => connection.person)
   const [view, setView] = useState<View>('list')
   const [records, setRecords] = useState<Claim[]>([])
@@ -57,7 +73,7 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
 
   useEffect(() => { void refreshList() }, [refreshList])
   useEffect(() => {
-    if (clarityIssue) feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (clarityIssue) feedbackRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
   }, [clarityIssue])
   useEffect(() => {
     const onVisible = () => {
@@ -239,48 +255,100 @@ export default function ClaimWorkspace({ profile, connections }: { profile: Prof
   const editDeadline = detail?.claim.locked_at ? Math.min(new Date(detail.claim.locked_at).getTime() + 300000, new Date(detail.claim.due_at).getTime()) : 0
   const canReviseLocked = detail?.claim.status === 'locked' && now < editDeadline && me?.invite_status === 'answered'
 
+  const backToList = () => { setView('list'); setMessage(''); void refreshList() }
+  const startNew = () => { setView('new'); setTopic(''); setDue(''); setFriendIds([]); setMessage('') }
+
   if (view === 'new') return <div className="page-content claim-workspace">
-    <div className="page-topline"><span className="eyebrow">NEW ENTRY</span><span>01 / CLAIMS</span></div>
-    <button className="back-link" onClick={() => { setView('list'); setMessage('') }}>← Back to records</button>
-    <h1>Put it on record<span className="period">.</span></h1>
-    <p className="page-lead">Start with the future event. Each friend will write their own answer before AI checks and locks the shared record.</p>
-    <form className="paper-card claim-form" onSubmit={create}>
-      <label>What are you predicting?<textarea value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={4} placeholder="Who will win the Manchester derby on Saturday?" required /></label>
-      <label>When should everyone check the result?<input type="datetime-local" value={due} onChange={event => setDue(event.target.value)} required /></label>
-      <fieldset><legend>Bring your friends in</legend>{friends.length ? friends.map(friend => <label className="friend-choice" key={friend.id}><input type="checkbox" checked={friendIds.includes(friend.id)} onChange={event => setFriendIds(event.target.checked ? [...friendIds, friend.id] : friendIds.filter(id => id !== friend.id))} /><span className="avatar">{friend.display_name[0]}</span><span>{friend.display_name}</span></label>) : <p className="muted">Add a friend in the Friends tab first.</p>}</fieldset>
-      <Toast message={message} onDismiss={() => setMessage('')} />
-      <button className="button primary" disabled={busy || !friends.length}>Create claim ↗</button>
-    </form>
+    <div key="new" className="view-stage">
+      <button className="back-link" onClick={() => { setView('list'); setMessage('') }}><Icon name="back" size={16} /> Back to records</button>
+      <header className="page-hero"><span className="eyebrow">New entry</span><h1>Put it on record<span className="period">.</span></h1><p className="page-lead">Start with the future event. Each friend writes their own answer before AI checks and locks the shared record.</p></header>
+      <form className="card claim-form" onSubmit={create}>
+        <div className="form-step"><span className="step-num" aria-hidden="true">1</span><label>What are you predicting?<textarea value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={4} placeholder="Who will win the Manchester derby on Saturday?" required /><small className="char-count">{topic.length}/300 · Be specific: who, what, and how you will know.</small></label></div>
+        <div className="form-step"><span className="step-num" aria-hidden="true">2</span><label>When should everyone check the result?<input type="datetime-local" value={due} onChange={event => setDue(event.target.value)} required /></label></div>
+        <fieldset className="form-step"><span className="step-num" aria-hidden="true">3</span><legend>Bring your friends in</legend>{friends.length ? <div className="friend-chips">{friends.map(friend => <label className={`friend-choice${friendIds.includes(friend.id) ? ' checked' : ''}`} key={friend.id}><input type="checkbox" checked={friendIds.includes(friend.id)} onChange={event => setFriendIds(event.target.checked ? [...friendIds, friend.id] : friendIds.filter(id => id !== friend.id))} /><Avatar profile={friend} /><span>{friend.display_name}</span><span className="choice-check" aria-hidden="true"><Icon name="check" size={14} /></span></label>)}</div> : <p className="muted">Add a friend in the Friends tab first.</p>}</fieldset>
+        <Toast message={message} onDismiss={() => setMessage('')} />
+        <button className="button primary big" disabled={busy || !friends.length}>{busy ? <><Disc size={20} /> Creating…</> : <>Create claim <Icon name="arrow" size={18} /></>}</button>
+      </form>
+    </div>
   </div>
 
-  if (view === 'detail' && detail) return <div className="page-content claim-workspace">
-    <div className="page-topline"><span className="eyebrow">RECORDED CLAIM</span><span>{detail.claim.status.toUpperCase()}</span></div>
-    <button className="back-link" onClick={() => { setView('list'); setMessage(''); void refreshList() }}>← Back to records</button>
-    <div className="claim-title-row"><div><span className="eyebrow">ENTRY · {detail.claim.id.slice(0, 8).toUpperCase()}</span><h1>{detail.claim.title || detail.claim.topic}{/[.!?]$/.test((detail.claim.title || detail.claim.topic).trim()) ? null : <span className="period">.</span>}</h1></div><span className={`status-chip ${detail.claim.status}`}>{detail.claim.status === 'collecting' ? 'COLLECTING WORDS' : detail.claim.status.toUpperCase()}</span></div>
-    <p className="page-lead">Check on {displayDate(detail.claim.due_at)} · Started by {detail.members.find(member => member.user_id === detail.claim.creator_id)?.profile?.display_name || 'a friend'}</p>
-    <Toast message={clarityIssue?.text || message} tone={clarityIssue ? 'error' : 'info'} onDismiss={() => { setMessage(''); setClarityIssue(null) }} />
-    {expiredDraft && <div className="lock-callout"><div><strong>The check time passed before this claim locked.</strong><p>{profile.id === detail.claim.creator_id ? 'Choose a later time so friends can finish.' : 'The creator can extend the check time.'}</p></div>{profile.id === detail.claim.creator_id && <form className="reschedule-form" onSubmit={reschedule}><label className="sr-only" htmlFor="reschedule-date">New check time</label><input id="reschedule-date" type="datetime-local" value={rescheduleDue} onChange={event => setRescheduleDue(event.target.value)} required /><button className="button primary" disabled={busy}>Extend date</button></form>}</div>}
-    {detail.claim.status !== 'collecting' && <section className="paper-card final-wording"><span className="eyebrow">THE SHARED QUESTION</span><h2>{detail.claim.question}</h2><div className="option-list">{detail.claim.options?.map(option => <span key={option} className={detail.claim.settled_option === option ? 'winning-option' : ''}>{outcomeLabel(option)}</span>)}</div></section>}
-    <SettlementSummary detail={detail} />
-    {detail.claim.status === 'collecting' && <section className="paper-card topic-card"><span className="eyebrow">THE TOPIC</span>{profile.id === detail.claim.creator_id ? <form onSubmit={editTopic}><label className="sr-only" htmlFor="edit-topic">Revise claim topic</label><textarea id="edit-topic" value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={3} /><button className="button outlined" disabled={busy || topic.trim() === detail.claim.topic}>Revise claim and reset answers</button></form> : <h2>{detail.claim.topic}</h2>}<p>{profile.id === detail.claim.creator_id ? 'Changing the topic clears everyone’s draft answers so each friend can respond to the new wording.' : 'If the creator changes this topic, you can submit a fresh answer.'} AI checks automatically after everyone submits.</p></section>}
-    <div className="section-head member-heading"><div><span className="eyebrow">ORIGINAL POSITIONS</span><h2>What everyone said</h2></div><span>{detail.members.filter(member => member.invite_status !== 'declined').length} PARTICIPANTS</span></div>
-    <div className="member-list">{detail.members.map(member => <div className="member-entry" key={member.user_id}><span className="avatar">{member.profile?.display_name[0] || '?'}</span><div><strong>{member.profile?.display_name || 'Friend'}{member.user_id === profile.id ? ' (you)' : ''}</strong><p>{member.invite_status === 'declined' ? 'Declined the invitation' : member.original_answer || (member.invite_status === 'answered' ? 'Answer saved privately until lock' : 'Waiting for an answer')}</p>{member.normalized_choice && <small>Recorded as: {outcomeLabel(member.normalized_choice)}</small>}</div><span className={`member-status ${member.invite_status}`}>{member.invite_status.toUpperCase()}</span></div>)}</div>
-    {checkingClaim && <div className="answer-checking" role="status">AI is checking whether this claim can be settled fairly…</div>}
-    {canEdit && me?.invite_status === 'answered' && !editingAnswer && <section className="paper-card answer-saved" aria-label="Your saved answer"><span className="eyebrow">YOUR ANSWER · SAVED</span><h2>Answer recorded ✓</h2><p>Your words are saved privately. You can change them until AI locks this claim.</p><div className="answer-actions"><button type="button" className="button outlined" onClick={() => setEditingAnswer(true)}>Edit my answer</button>{profile.id !== detail.claim.creator_id && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></section>}
-    {canEdit && me?.invite_status !== 'declined' && (me?.invite_status !== 'answered' || editingAnswer) && <form ref={feedbackRef} className="paper-card answer-form" onSubmit={saveAnswer}><span className="eyebrow">YOUR WORDS</span><h2>{me?.invite_status === 'answered' ? 'Edit your answer' : 'Write your answer'}</h2><label className="sr-only" htmlFor="your-answer">Your prediction</label><textarea id="your-answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} placeholder="I think Manchester City will win." required /><div className="answer-actions"><button className="button primary" disabled={busy}>Save my answer</button>{me?.invite_status === 'answered' && <button type="button" className="text-button" disabled={busy} onClick={() => { setAnswer(me.original_answer || ''); setEditingAnswer(false) }}>Cancel edit</button>}{profile.id !== detail.claim.creator_id && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></form>}
-    {canEdit && profile.id === detail.claim.creator_id && availableFriends.length > 0 && <form className="invite-extra" onSubmit={invite}><label>Add another friend if someone declined<select value={replacementFriend} onChange={event => setReplacementFriend(event.target.value)} required><option value="">Choose a friend</option>{availableFriends.map(friend => <option key={friend.id} value={friend.id}>{friend.display_name}</option>)}</select></label><button className="button outlined" disabled={busy || !replacementFriend}>Invite</button></form>}
-    {canEdit && readyToLock(detail) && <div className="lock-callout"><div><strong>Everyone has answered.</strong><p>AI checks the claim automatically when an answer is submitted. If it needs revision, update the topic or edit an answer, then submit again.</p></div></div>}
-    {canReviseLocked && !editingAnswer && <section className="paper-card answer-saved"><span className="eyebrow">FIVE-MINUTE CORRECTION WINDOW</span><h2>Your answer is on record ✓</h2><p>You may edit only your answer until {displayDate(new Date(editDeadline).toISOString())}. AI will check it again automatically.</p><button className="button outlined" onClick={() => { setAnswer(me?.original_answer || ''); setEditingAnswer(true) }}>Edit my answer</button></section>}
-    {canReviseLocked && editingAnswer && <form ref={feedbackRef} className="paper-card answer-form" onSubmit={reviseLockedAnswer}><span className="eyebrow">CORRECT YOUR ANSWER</span><h2>Your position</h2><textarea aria-label="Your revised answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} required /><div className="answer-actions"><button className="button primary" disabled={busy || answer.trim() === me?.original_answer}>{busy ? 'Checking…' : 'Submit revised answer'}</button><button type="button" className="text-button" disabled={busy} onClick={() => { setEditingAnswer(false); setClarityIssue(null) }}>Cancel</button></div></form>}
-    {detail.claim.status === 'locked' && <div className="hint-row"><span>◷</span><p>{isDue(detail.claim) ? 'This claim is due. Open Notices to vote on the result.' : canReviseLocked ? 'After the correction window closes, every answer stays permanent.' : 'The correction window is closed. Come back when the check time arrives.'}</p></div>}
-  </div>
+  if (view === 'detail' && detail) {
+    const claim = detail.claim
+    const dueNow = isDue(claim)
+    const isCreator = profile.id === claim.creator_id
+    const active = detail.members.filter(member => member.invite_status !== 'declined')
+    const waitingOn = active.filter(member => member.invite_status !== 'answered').length
+    const completed = claim.status === 'settled' ? 4 : claim.status === 'locked' ? (dueNow ? 3 : 2) : readyToLock(detail) ? 1 : 0
+    const stampLabel = claim.status === 'settled' ? 'Settled' : claim.status === 'locked' ? (dueNow ? 'Due' : 'Locked') : 'Recording'
+    const lockedAt = claim.locked_at ? new Date(claim.locked_at).getTime() : 0
+    const fuse = canReviseLocked && editDeadline > lockedAt ? Math.max(0, Math.min(1, (editDeadline - now) / (editDeadline - lockedAt))) : 0
+    const minutesLeft = Math.max(1, Math.ceil((editDeadline - now) / 60000))
+    const title = claim.title || claim.topic
+    let next: NextStep | null = null
+    if (claim.status === 'locked' && dueNow) next = { icon: 'vote', tone: 'due', title: 'Time to settle', text: 'This claim is due. Open Notices to vote on the result.', action: onOpenNotices ? { label: 'Vote in Notices', run: onOpenNotices } : undefined }
+    else if (claim.status === 'locked' && canReviseLocked) next = { icon: 'clock', tone: 'window', title: 'Correction window open', text: `About ${minutesLeft} min left to fix only your own answer. After it closes, every answer stays permanent.` }
+    else if (claim.status === 'locked') next = { icon: 'lock', tone: 'locked', title: 'Locked in', text: `The correction window is closed. Come back ${displayDate(claim.due_at)} to vote.` }
+    else if (claim.status !== 'collecting' || expiredDraft) next = null
+    else if (me?.invite_status === 'declined') next = { icon: 'close', tone: 'muted', title: 'You declined', text: 'This claim will not affect your score.' }
+    else if (me && me.invite_status !== 'answered') next = { icon: 'pen', tone: 'you', title: 'Your move', text: 'Write your answer below. It stays private until the claim locks.' }
+    else if (readyToLock(detail)) next = { icon: 'spark', tone: 'ready', title: 'Everyone has answered', text: 'AI checks the claim automatically when an answer is submitted. If it needs revision, update the topic or edit an answer, then submit again.' }
+    else next = { icon: 'friends', tone: 'waiting', title: `Waiting on ${waitingOn} friend${waitingOn === 1 ? '' : 's'}`, text: 'AI checks and locks the claim as soon as the last answer lands.' }
+
+    return <div className="page-content claim-workspace">
+      <div key={`detail:${claim.id}`} className="view-stage">
+        <button className="back-link" onClick={backToList}><Icon name="back" size={16} /> Back to records</button>
+        <header className="claim-head">
+          <div className="claim-head-top"><span className="eyebrow">Entry · {claim.id.slice(0, 8).toUpperCase()}</span><span key={stampLabel} className={`status-stamp ${claim.status}${dueNow ? ' due' : ''}`}>{claim.status === 'collecting' && <span className="rec-dot" aria-hidden="true" />}{stampLabel}</span></div>
+          <h1>{title}{/[.!?]$/.test(title.trim()) ? null : <span className="period">.</span>}</h1>
+          <p className="page-lead">Check on {displayDate(claim.due_at)} · Started by {detail.members.find(member => member.user_id === claim.creator_id)?.profile?.display_name || 'a friend'}</p>
+        </header>
+        <ol className="progress-track" aria-label="Claim progress">{steps.map((step, index) => <li key={step} className={index < completed ? 'done' : index === completed ? 'current' : ''} aria-current={index === completed ? 'step' : undefined}><span className="track-dot" aria-hidden="true">{index < completed ? <Icon name="check" size={12} /> : index + 1}</span><span>{step}</span></li>)}</ol>
+        {next && <div className={`next-step ${next.tone}`}><span className="next-icon" aria-hidden="true"><Icon name={next.icon} size={20} /></span><div><span className="eyebrow">Next up</span><strong>{next.title}</strong><p>{next.text}</p>{next.tone === 'window' && <div className="fuse" aria-hidden="true"><span style={{ transform: `scaleX(${fuse})` }} /></div>}</div>{next.action && <button className="button primary" onClick={next.action.run}>{next.action.label} <Icon name="arrow" size={16} /></button>}</div>}
+        <Toast message={clarityIssue?.text || message} tone={clarityIssue ? 'error' : 'info'} onDismiss={() => { setMessage(''); setClarityIssue(null) }} />
+        {expiredDraft && <div className="next-step stalled"><span className="next-icon" aria-hidden="true"><Icon name="clock" size={20} /></span><div><span className="eyebrow">Next up</span><strong>The check time passed before this claim locked.</strong><p>{isCreator ? 'Choose a later time so friends can finish.' : 'The creator can extend the check time.'}</p>{isCreator && <form className="reschedule-form" onSubmit={reschedule}><label className="sr-only" htmlFor="reschedule-date">New check time</label><input id="reschedule-date" type="datetime-local" value={rescheduleDue} onChange={event => setRescheduleDue(event.target.value)} required /><button className="button primary" disabled={busy}>Extend date</button></form>}</div></div>}
+        <SettlementSummary detail={detail} />
+        {claim.status !== 'collecting' && <section className="card final-wording"><span className="eyebrow">The shared question</span><h2>{claim.question}</h2><div className="option-list">{claim.options?.map(option => <span key={option} className={claim.settled_option === option ? 'winning-option' : ''}>{claim.settled_option === option && <Icon name="check" size={14} />}{outcomeLabel(option)}</span>)}</div></section>}
+        {claim.status === 'collecting' && <section className="card topic-card"><span className="eyebrow">The topic</span>{isCreator ? <form onSubmit={editTopic}><label className="sr-only" htmlFor="edit-topic">Revise claim topic</label><textarea id="edit-topic" value={topic} onChange={event => setTopic(event.target.value)} minLength={10} maxLength={300} rows={3} /><button className="button outlined" disabled={busy || topic.trim() === claim.topic}>Revise claim and reset answers</button></form> : <h2>{claim.topic}</h2>}<p>{isCreator ? 'Changing the topic clears everyone’s draft answers so each friend can respond to the new wording.' : 'If the creator changes this topic, you can submit a fresh answer.'} AI checks automatically after everyone submits.</p></section>}
+        <div className="section-head member-heading"><div><span className="eyebrow">Original positions</span><h2>What everyone said</h2></div><span className="tag">{active.length} participants</span></div>
+        <div className="member-list">{detail.members.map((member, index) => <div className={`member-entry ${member.invite_status}`} key={member.user_id} style={{ animationDelay: `${index * 60}ms` }}>{member.profile ? <Avatar profile={member.profile} /> : <span className="avatar">?</span>}<div className="member-body"><div className="member-name"><strong>{member.profile?.display_name || 'Friend'}{member.user_id === profile.id ? ' (you)' : ''}</strong><span className={`member-status ${member.invite_status}`}>{member.invite_status === 'pending' ? 'Waiting' : member.invite_status === 'answered' ? 'Answered' : 'Declined'}</span></div><p className="member-quote">{member.invite_status === 'declined' ? 'Declined the invitation' : member.original_answer || (member.invite_status === 'answered' ? 'Answer saved privately until lock' : 'Waiting for an answer')}</p>{member.normalized_choice && <small className="recorded-as"><Icon name="lock" size={12} /> Recorded as: {outcomeLabel(member.normalized_choice)}</small>}</div></div>)}</div>
+        {checkingClaim && <div className="answer-checking" role="status"><Disc size={38} /><span><strong>AI referee is listening</strong>AI is checking whether this claim can be settled fairly…</span></div>}
+        {canEdit && me?.invite_status === 'answered' && !editingAnswer && <section className="card answer-saved" aria-label="Your saved answer"><span className="eyebrow">Your answer · saved</span><h2><span className="check-burst" aria-hidden="true"><Icon name="check" size={18} /></span>Answer recorded</h2><p>Your words are saved privately. You can change them until AI locks this claim.</p><div className="answer-actions"><button type="button" className="button outlined" onClick={() => setEditingAnswer(true)}><Icon name="pen" size={16} /> Edit my answer</button>{!isCreator && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></section>}
+        {canEdit && me?.invite_status !== 'declined' && (me?.invite_status !== 'answered' || editingAnswer) && <form ref={feedbackRef} className="card answer-form" onSubmit={saveAnswer}><span className="eyebrow">Your words</span><h2>{me?.invite_status === 'answered' ? 'Edit your answer' : 'Write your answer'}</h2><label className="sr-only" htmlFor="your-answer">Your prediction</label><textarea id="your-answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} placeholder="I think Manchester City will win." required /><div className="answer-actions"><button className="button primary" disabled={busy}>Save my answer <Icon name="arrow" size={16} /></button>{me?.invite_status === 'answered' && <button type="button" className="text-button" disabled={busy} onClick={() => { setAnswer(me.original_answer || ''); setEditingAnswer(false) }}>Cancel edit</button>}{!isCreator && <button type="button" className="text-button" disabled={busy} onClick={decline}>Decline invitation</button>}</div></form>}
+        {canEdit && isCreator && availableFriends.length > 0 && <form className="invite-extra" onSubmit={invite}><label>Add another friend if someone declined<select value={replacementFriend} onChange={event => setReplacementFriend(event.target.value)} required><option value="">Choose a friend</option>{availableFriends.map(friend => <option key={friend.id} value={friend.id}>{friend.display_name}</option>)}</select></label><button className="button outlined" disabled={busy || !replacementFriend}>Invite</button></form>}
+        {canReviseLocked && !editingAnswer && <section className="card answer-saved"><span className="eyebrow">Five-minute correction window</span><h2><span className="check-burst" aria-hidden="true"><Icon name="check" size={18} /></span>Your answer is on record</h2><p>You may edit only your answer until {displayDate(new Date(editDeadline).toISOString())}. AI will check it again automatically.</p><div className="answer-actions"><button className="button outlined" onClick={() => { setAnswer(me?.original_answer || ''); setEditingAnswer(true) }}><Icon name="pen" size={16} /> Edit my answer</button></div></section>}
+        {canReviseLocked && editingAnswer && <form ref={feedbackRef} className="card answer-form" onSubmit={reviseLockedAnswer}><span className="eyebrow">Correct your answer</span><h2>Your position</h2><textarea aria-label="Your revised answer" value={answer} onChange={event => setAnswer(event.target.value)} minLength={2} maxLength={300} rows={3} required /><div className="answer-actions"><button className="button primary" disabled={busy || answer.trim() === me?.original_answer}>{busy ? 'Checking…' : 'Submit revised answer'}</button><button type="button" className="text-button" disabled={busy} onClick={() => { setEditingAnswer(false); setClarityIssue(null) }}>Cancel</button></div></form>}
+      </div>
+    </div>
+  }
+
+  const dueRecords = records.filter(isDue)
+  const stats = [
+    { label: 'Recording', value: records.filter(record => record.status === 'collecting').length, tone: 'collecting' },
+    { label: 'Locked', value: records.filter(record => record.status === 'locked' && !isDue(record)).length, tone: 'locked' },
+    { label: 'To settle', value: dueRecords.length, tone: 'due' },
+    { label: 'Settled', value: records.filter(record => record.status === 'settled').length, tone: 'settled' },
+  ]
 
   return <div className="page-content claim-workspace">
-    <div className="page-topline"><span className="eyebrow">YOUR RECORD BOOK</span><span>01 / HOME</span></div>
-    <div className="welcome-row"><div><h1>Good to have you here,<br /><em>{profile.display_name}</em><span className="period">.</span></h1><p className="page-lead">Every great prediction starts with someone willing to put it in writing.</p></div><div className="ledger-stamp"><span>ON RECORD</span><strong>{String(records.length).padStart(2, '0')}</strong><small>ENTRIES TO DATE</small></div></div>
-    <div className="section-head records-heading"><div><span className="eyebrow">THE LEDGER</span><h2>Claims on record</h2></div><button className="button primary" onClick={() => { setView('new'); setTopic(''); setDue(''); setFriendIds([]); setMessage('') }}>＋ New claim</button></div>
-    <Toast message={message} onDismiss={() => setMessage('')} />
-    {loading ? <p className="muted">Opening records…</p> : records.length ? <div className="record-stack">{records.map((record, index) => <button key={record.id} className={`record-card color-${index % 4}`} onClick={() => void openDetail(record.id)}><span className="record-number">ENTRY {String(records.length - index).padStart(3, '0')} · {record.status.toUpperCase()}</span><strong>{record.title || record.topic}</strong><small>{displayDate(record.due_at)} <span>↗</span></small></button>)}</div> : <div className="claim-card-preview"><div className="card-stripe" /><div className="claim-inner"><span className="claim-number">ENTRY NO. 001 <span>✦</span> YOUR TURN</span><h3>Your first claim belongs here.</h3><p>{friends.length ? 'Your circle is ready. Write a claim, choose friends, and set a check time.' : 'Add a friend, then you can put your first prediction on record.'}</p><button className="inline-link" onClick={() => { setView('new'); setMessage('') }}>Start a claim <span>↗</span></button></div></div>}
-    <div className="hint-row"><span>✳</span><p>Original words stay. Results settle the score. Everyone remembers who called it.</p></div>
+    <div key="list" className="view-stage">
+      <header className="records-hero">
+        <div><span className="eyebrow">Hey {profile.display_name}</span><h1>What’s your <span className="hl">next call</span>?</h1><p className="page-lead">Every great prediction starts with someone willing to put it in writing.</p></div>
+        <button className="button primary big new-claim" onClick={startNew}><Icon name="plus" size={20} /> New claim</button>
+      </header>
+      {!loading && records.length > 0 && <dl className="stat-strip">{stats.map(stat => <div key={stat.label} className={`stat ${stat.tone}`}><dt>{stat.label}</dt><dd><CountUp value={stat.value} /></dd></div>)}</dl>}
+      {dueRecords.length > 0 && onOpenNotices && <button className="up-next" onClick={onOpenNotices}><span className="up-next-icon" aria-hidden="true"><Icon name="vote" size={22} /></span><span><strong>{dueRecords.length} claim{dueRecords.length === 1 ? ' is' : 's are'} ready to settle</strong><small>Vote on what actually happened</small></span><Icon name="arrow" size={20} /></button>}
+      <Toast message={message} onDismiss={() => setMessage('')} />
+      <div className="section-head records-heading"><h2>On record</h2>{records.length > 0 && <span className="tag">{records.length} entries</span>}</div>
+      {loading ? <div className="record-stack" aria-label="Opening records">{[0, 1, 2].map(index => <div key={index} className="record-card skeleton" />)}</div> : records.length ? <div className="record-stack">{records.map((record, index) => {
+        const state = recordState(record, now)
+        return <button key={record.id} className={`record-card tone-${cardTones[index % 4]} state-${state.tone}`} style={{ animationDelay: `${Math.min(index, 8) * 55}ms` }} onClick={() => void openDetail(record.id)}>
+          <span className="record-top"><span className="record-number">Entry {String(records.length - index).padStart(3, '0')}</span><span className={`state-badge ${state.tone}`}>{state.tone === 'collecting' ? <span className="rec-dot" aria-hidden="true" /> : <Icon name={state.icon} size={13} />}{state.label}</span></span>
+          <strong>{record.title || record.topic}</strong>
+          <span className="record-next"><span>{state.next}</span><Icon name="arrow" size={18} /></span>
+          <span className="record-groove" aria-hidden="true" />
+        </button>
+      })}</div> : <div className="empty-record"><Disc size={64} spinning={false} /><div><span className="eyebrow">Entry 001 · Your turn</span><h3>Your first claim belongs here.</h3><p>{friends.length ? 'Your circle is ready. Write a claim, choose friends, and set a check time.' : 'Add a friend, then you can put your first prediction on record.'}</p><button className="button primary" onClick={startNew}>Start a claim <Icon name="arrow" size={16} /></button></div></div>}
+      <p className="hint-row"><Icon name="spark" size={16} /> Original words stay. Results settle the score. Everyone remembers who called it.</p>
+    </div>
   </div>
 }

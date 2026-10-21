@@ -3,6 +3,9 @@ import { supabase, type Profile } from '../lib/supabase'
 import Avatar from './Avatar'
 import { InstallAction } from './InstallActions'
 import Toast from './Toast'
+import CountUp from './CountUp'
+import RankLadder from './RankLadder'
+import Icon from './Icon'
 
 type Stats = { correct_claims: number; settled_claims: number; title: string }
 
@@ -101,17 +104,32 @@ export default function ProfilePage({ profile, own, onSaved, onBack, signOut }: 
     finally { setBusy(false) }
   }
 
+  const accuracy = stats && stats.settled_claims ? Math.round(stats.correct_claims / stats.settled_claims * 100) : 0
+
   return <div className="page-content profile-page">
-    <div className="page-topline"><span className="eyebrow">{own ? 'ACCOUNT DETAILS' : 'FRIEND PROFILE'}</span><span>05 / PROFILE</span></div>
-    {!own && <button className="back-link" onClick={onBack}>← Back</button>}
-    <h1>{own ? 'Your profile' : profile.display_name}<span className="period">.</span></h1>
+    {!own && <button className="back-link" onClick={onBack}><Icon name="back" size={16} /> Back</button>}
+    <header className="page-hero"><span className="eyebrow">{own ? 'Your profile' : 'Friend profile'}</span><h1>{own ? 'Your profile' : profile.display_name}<span className="period">.</span></h1></header>
     <Toast message={message} onDismiss={() => setMessage('')} />
-    <div className="paper-card profile-card"><Avatar profile={profile} large /><div className="profile-identity"><span className="eyebrow">{stats?.title?.toUpperCase() || 'MEMBER OF THE RECORD'}</span><h2>{profile.display_name}</h2>{profile.headline && <strong className="profile-headline">{profile.headline}</strong>}<p>{profile.bio || (own ? 'Add a few words about yourself below.' : 'No bio yet.')}</p><small>{stats ? `${stats.correct_claims} correct calls · ${stats.settled_claims} settled records` : 'Records are being counted.'}</small>{own && <p>Your friend ID: <strong>{profile.friend_code}</strong></p>}</div></div>
+    <section className="player-card">
+      <div className="player-disc" aria-hidden="true"><span className="player-grooves" /></div>
+      <div className="player-avatar"><Avatar profile={profile} large /></div>
+      <div className="profile-identity">
+        <span className="rank-badge">{stats?.title || 'Member of the record'}</span>
+        <h2>{profile.display_name}</h2>
+        {profile.headline && <strong className="profile-headline">{profile.headline}</strong>}
+        <p>{profile.bio || (own ? 'Add a few words about yourself below.' : 'No bio yet.')}</p>
+        {own && <p className="profile-code">Your friend ID: <strong>{profile.friend_code}</strong></p>}
+      </div>
+      <dl className="player-stats">
+        <div><dt>Correct calls</dt><dd>{stats ? <CountUp value={stats.correct_claims} /> : '—'}</dd></div>
+        <div><dt>Settled records</dt><dd>{stats ? <CountUp value={stats.settled_claims} /> : '—'}</dd></div>
+        <div><dt>Hit rate</dt><dd>{stats ? <><CountUp value={accuracy} />%</> : '—'}</dd></div>
+      </dl>
+    </section>
+    {stats && <section className="card ladder-card"><span className="eyebrow">Rank ladder</span><RankLadder correct={stats.correct_claims} title={stats.title} /><p className="rank-note">Friends can share a title.</p></section>}
     {own && <>
-      <section className="paper-card profile-edit"><span className="eyebrow">MAKE IT YOURS</span><h2>Edit your profile</h2><div className="photo-actions"><label className="button outlined">{busy ? 'Working…' : 'Choose a profile photo'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => void uploadPhoto(event)} /></label>{profile.avatar_path && <button className="text-button" disabled={busy} onClick={() => void removePhoto()}>Remove photo</button>}</div><p className="muted">JPG, PNG, or WebP, up to 2 MB. Your photo is visible to people who open your profile.</p><form onSubmit={saveProfile}><label>Name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} required /></label><label>Personal title<input value={headline} onChange={event => setHeadline(event.target.value)} maxLength={60} placeholder="e.g. Derby night forecaster" /></label><label>About you<textarea value={bio} onChange={event => setBio(event.target.value)} maxLength={240} rows={4} placeholder="A few words for your friends" /></label><button className="button primary" disabled={busy}>Save profile</button></form></section>
-      <p className="rank-note">Earned titles: Newcomer · Contender (1 win) · Challenger (5 wins) · Conqueror (15 wins). Friends can share a title.</p>
-      <InstallAction />
-      <button className="text-button profile-signout" onClick={signOut}>Sign out ↗</button>
+      <section className="card profile-edit"><span className="eyebrow">Make it yours</span><h2>Edit your profile</h2><div className="photo-actions"><label className="button outlined"><Icon name="camera" size={18} />{busy ? 'Working…' : 'Choose a profile photo'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={event => void uploadPhoto(event)} /></label>{profile.avatar_path && <button className="text-button" disabled={busy} onClick={() => void removePhoto()}>Remove photo</button>}</div><p className="muted">JPG, PNG, or WebP, up to 2 MB. Your photo is visible to people who open your profile.</p><form onSubmit={saveProfile}><label>Name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} required /></label><label>Personal title<input value={headline} onChange={event => setHeadline(event.target.value)} maxLength={60} placeholder="e.g. Derby night forecaster" /></label><label>About you<textarea value={bio} onChange={event => setBio(event.target.value)} maxLength={240} rows={4} placeholder="A few words for your friends" /></label><button className="button primary" disabled={busy}>Save profile <Icon name="check" size={16} /></button></form></section>
+      <section className="card device-card"><span className="eyebrow">This device</span><InstallAction /><button className="text-button profile-signout" onClick={signOut}><Icon name="exit" size={16} /> Sign out</button></section>
     </>}
   </div>
 }

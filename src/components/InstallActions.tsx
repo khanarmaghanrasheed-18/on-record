@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import Toast from './Toast'
+import Icon from './Icon'
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>
@@ -31,7 +32,7 @@ export function InstallAction() {
     return () => { subscribers.delete(setPromptEvent) }
   }, [])
 
-  if (installed) return <p className="install-note">On Record is installed on this device.</p>
+  if (installed) return <p className="install-note"><Icon name="check" size={16} /> On Record is installed on this device.</p>
   return <div className="install-actions">
     <button className="button outlined" onClick={async () => {
       setError(false)
@@ -49,7 +50,7 @@ export function InstallAction() {
         setError(true)
         setMessage('The install prompt did not open. Try Install app or Add to Home Screen from your browser menu.')
       }
-    }}>Install on this device ↗</button>
+    }}><Icon name="install" size={18} /> Install on this device</button>
     <Toast message={message} tone={error ? 'error' : 'info'} onDismiss={() => setMessage('')} />
   </div>
 }
@@ -57,5 +58,5 @@ export function InstallAction() {
 export function UpdateNotice() {
   const { needRefresh, updateServiceWorker } = useRegisterSW()
   if (!needRefresh[0]) return null
-  return <div className="update-notice" role="status"><span>A newer record book is ready. Save any answer you are writing first.</span><button className="button primary small" onClick={() => void updateServiceWorker(true)}>Update now</button></div>
+  return <div className="update-notice" role="status"><Icon name="spark" size={18} /><span>A newer record book is ready. Save any answer you are writing first.</span><button className="button primary small" onClick={() => void updateServiceWorker(true)}>Update now</button></div>
 }

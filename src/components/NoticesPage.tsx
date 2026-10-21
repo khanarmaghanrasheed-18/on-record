@@ -4,6 +4,7 @@ import { displayDate, getClaimDetail, isDue, listClaims, type Claim, type ClaimD
 import { outcomeLabel } from '../lib/outcome'
 import SettlementSummary from './SettlementSummary'
 import Toast from './Toast'
+import Icon, { Disc } from './Icon'
 
 const noneChoice = 'NONE_OF_THESE'
 
@@ -67,38 +68,54 @@ export default function NoticesPage({ profile }: { profile: Profile }) {
   const upcoming = claims.filter(claim => claim.status === 'locked' && !isDue(claim))
   const settled = claims.filter(claim => claim.status === 'settled')
 
+  const myVote = detail?.members.find(member => member.user_id === profile.id)?.vote
+
   return <div className="page-content notices-page">
-    <div className="page-topline"><span className="eyebrow">DUE & UPCOMING</span><span>03 / NOTICES</span></div>
-    <h1>Time to settle<span className="period">.</span></h1>
-    <p className="page-lead">When a claim reaches its check time, everyone records the actual outcome here.</p>
+    <header className="page-hero">
+      <span className="eyebrow">Notices</span>
+      <h1>Time to settle<span className="period">.</span></h1>
+      <p className="page-lead">When a claim reaches its check time, everyone records what actually happened here.</p>
+    </header>
     <Toast message={message} onDismiss={() => setMessage('')} />
-    {detail && <section className="paper-card vote-card">
-      <button className="back-link" onClick={() => { setDetail(null); setMessage('') }}>← All notices</button>
-      <span className="eyebrow">{detail.claim.status === 'settled' ? 'FINAL RESULT' : 'THE QUESTION'}</span>
+    {detail && <section key={detail.claim.id} className="card vote-card view-stage">
+      <button className="back-link" onClick={() => { setDetail(null); setMessage('') }}><Icon name="back" size={16} /> All notices</button>
+      <span className="eyebrow">{detail.claim.status === 'settled' ? 'Final result' : 'The question'}</span>
       <h2>{detail.claim.question || detail.claim.title}</h2>
-      <p>Check time: {displayDate(detail.claim.due_at)}</p>
+      <p className="vote-meta"><Icon name="clock" size={14} /> Check time: {displayDate(detail.claim.due_at)}</p>
       {detail.claim.status === 'settled' ? <SettlementSummary detail={detail} /> : isDue(detail.claim) ? <>
         <p className="vote-guidance">Choose the result that actually happened. A group needs a majority; if two friends disagree, the creator’s vote settles it once both vote.</p>
         <div className="vote-options" role="radiogroup" aria-label="Actual outcome">
-          {[...(detail.claim.options || []), noneChoice].map(option => <label key={option} className={choice === option ? 'selected' : ''}><input type="radio" name="outcome" value={option} checked={choice === option} onChange={() => setChoice(option)} /><span>{outcomeLabel(option)}</span></label>)}
+          {[...(detail.claim.options || []), noneChoice].map((option, index) => <label key={option} className={`${choice === option ? 'selected' : ''}${option === noneChoice ? ' none' : ''}`} style={{ animationDelay: `${index * 60}ms` }}><input type="radio" name="outcome" value={option} checked={choice === option} onChange={() => setChoice(option)} /><span>{outcomeLabel(option)}</span>{myVote === option && <small className="your-pick">Your vote</small>}</label>)}
         </div>
-        <button className="button primary" disabled={busy || !choice} onClick={() => void vote()}>{busy ? 'Saving…' : 'Record my vote'}</button>
-        {detail.members.find(member => member.user_id === profile.id)?.vote && <p className="saved-vote">Your saved vote: {outcomeLabel(detail.members.find(member => member.user_id === profile.id)?.vote || null)}. You can change it until the record settles.</p>}
-      </> : <p>Voting opens at the check time.</p>}
-      <div className="vote-positions"><h3>Original positions</h3>{detail.members.filter(member => member.invite_status === 'answered').map(member => <p key={member.user_id}><strong>{member.profile?.display_name || 'Friend'}:</strong> {member.original_answer}</p>)}</div>
+        <button className="button primary big" disabled={busy || !choice} onClick={() => void vote()}>{busy ? <><Disc size={20} /> Saving…</> : <><Icon name="vote" size={18} /> Record my vote</>}</button>
+        {myVote && <p className="saved-vote"><Icon name="check" size={14} /> Your saved vote: {outcomeLabel(myVote || null)}. You can change it until the record settles.</p>}
+      </> : <p className="vote-wait"><Icon name="lock" size={16} /> Voting opens at the check time.</p>}
+      <div className="vote-positions"><h3>Original positions</h3>{detail.members.filter(member => member.invite_status === 'answered').map(member => <p key={member.user_id}><strong>{member.profile?.display_name || 'Friend'}</strong><span>{member.original_answer}</span></p>)}</div>
     </section>}
-    {!detail && <>
-      {loading ? <p className="muted">Checking the ledger…</p> : due.length === 0 && upcoming.length === 0 && settled.length === 0 && <div className="empty-line">No notices yet. Locked claims appear here when their check time arrives.</div>}
-      <NoticeGroup title="Ready for a result" rows={due} onOpen={openClaim} empty="Nothing needs a vote right now." />
-      <NoticeGroup title="Coming up" rows={upcoming} onOpen={openClaim} />
-      <NoticeGroup title="Settled records" rows={settled} onOpen={openClaim} />
-    </>}
+    {!detail && <div className="view-stage">
+      {loading ? <div className="notice-loading" role="status"><Disc size={40} /> Checking the ledger…</div> : due.length === 0 && upcoming.length === 0 && settled.length === 0 && <div className="empty-state"><Disc size={44} spinning={false} /><p>No notices yet. Locked claims appear here when their check time arrives.</p></div>}
+      <NoticeGroup kind="due" title="Ready for a result" rows={due} onOpen={openClaim} empty="Nothing needs a vote right now." />
+      <NoticeGroup kind="upcoming" title="Coming up" rows={upcoming} onOpen={openClaim} />
+      <NoticeGroup kind="settled" title="Settled records" rows={settled} onOpen={openClaim} />
+    </div>}
   </div>
 }
 
-function NoticeGroup({ title, rows, onOpen, empty }: { title: string; rows: Claim[]; onOpen: (id: string) => void; empty?: string }) {
+function relativeTime(value: string) {
+  const minutes = Math.round((new Date(value).getTime() - Date.now()) / 60000)
+  const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  if (Math.abs(minutes) < 60) return format.format(minutes, 'minute')
+  if (Math.abs(minutes) < 60 * 24) return format.format(Math.round(minutes / 60), 'hour')
+  return format.format(Math.round(minutes / 1440), 'day')
+}
+
+function NoticeGroup({ kind, title, rows, onOpen, empty }: { kind: 'due' | 'upcoming' | 'settled'; title: string; rows: Claim[]; onOpen: (id: string) => void; empty?: string }) {
   if (!rows.length && !empty) return null
-  return <section className="notice-group"><div className="section-head"><h2>{title}</h2><span>{rows.length} RECORDS</span></div>
-    {rows.length ? rows.map(claim => <button className="notice-row" key={claim.id} onClick={() => onOpen(claim.id)}><span className="notice-date">{displayDate(claim.due_at)}</span><strong>{claim.title || claim.topic}</strong><span>{claim.status === 'settled' ? 'See result' : isDue(claim) ? 'Vote now' : 'Upcoming'} ↗</span></button>) : <p className="muted">{empty}</p>}
+  return <section className={`notice-group ${kind}`}><div className="section-head"><h2>{kind === 'due' && rows.length > 0 && <span className="rec-dot" aria-hidden="true" />}{title}</h2><span className="tag">{rows.length} record{rows.length === 1 ? '' : 's'}</span></div>
+    {rows.length ? <div className="notice-list">{rows.map((claim, index) => <button className={`notice-row ${kind}`} key={claim.id} onClick={() => onOpen(claim.id)} style={{ animationDelay: `${index * 50}ms` }}>
+      <span className="notice-icon" aria-hidden="true"><Icon name={kind === 'due' ? 'vote' : kind === 'settled' ? 'check' : 'clock'} size={18} /></span>
+      <span className="notice-text"><strong>{claim.title || claim.topic}</strong><small>{kind === 'settled' ? `Result: ${outcomeLabel(claim.settled_option)}` : `${displayDate(claim.due_at)} · ${relativeTime(claim.due_at)}`}</small></span>
+      <span className="notice-cta">{claim.status === 'settled' ? 'See result' : isDue(claim) ? 'Vote now' : 'Upcoming'} <Icon name="arrow" size={14} /></span>
+    </button>)}</div> : <p className="muted empty-mini">{empty}</p>}
   </section>
 }

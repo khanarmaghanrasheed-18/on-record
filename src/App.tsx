@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type CSSProperties, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type FriendConnection, type Friendship, type Profile } from './lib/supabase'
 import ClaimWorkspace from './components/ClaimWorkspace'
@@ -7,14 +7,23 @@ import ScoresPage from './components/ScoresPage'
 import ProfilePage from './components/ProfilePage'
 import Avatar from './components/Avatar'
 import Toast from './components/Toast'
+import Icon, { Disc, type IconName } from './components/Icon'
 import { UpdateNotice } from './components/InstallActions'
 import { isDue, listClaims } from './lib/claims'
 
 type Section = 'records' | 'friends' | 'notices' | 'scores' | 'profile'
 type AppView = { section: Section; profileId?: string; depth: number }
+type Direction = 'forward' | 'back'
 
 const homeView: AppView = { section: 'records', depth: 0 }
 const sections: Section[] = ['records', 'friends', 'notices', 'scores', 'profile']
+const navItems: { section: Section; label: string; icon: IconName }[] = [
+  { section: 'records', label: 'Records', icon: 'records' },
+  { section: 'friends', label: 'Friends', icon: 'friends' },
+  { section: 'notices', label: 'Notices', icon: 'notices' },
+  { section: 'scores', label: 'Scores', icon: 'scores' },
+  { section: 'profile', label: 'Profile', icon: 'profile' },
+]
 
 function readAppView(state: unknown): AppView {
   if (!state || typeof state !== 'object' || !('__onRecordView' in state)) return homeView
@@ -41,6 +50,40 @@ const clipboardInputProps = {
   onCopy: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
   onCut: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
   onPaste: (event: ClipboardEvent<HTMLInputElement>) => event.stopPropagation(),
+}
+
+const sampleCalls = [
+  'Mia: Arsenal win the derby 2–1',
+  'Dev: it rains before the 3pm lecture',
+  'Sam: the group chat hits 500 messages tonight',
+  'Noor: our team finishes the hackathon demo',
+  'Leo: the new album drops at midnight',
+  'Ana: the bus is late again on Monday',
+]
+
+function Brand({ onClick }: { onClick?: () => void }) {
+  const inner = <><Disc size={34} /><span className="wordmark">On<b>Record</b></span></>
+  return onClick ? <button className="brand" onClick={onClick} aria-label="On Record home">{inner}</button> : <span className="brand">{inner}</span>
+}
+
+function AuthStage({ eyebrow, title, lead, children }: { eyebrow: string; title: ReactNode; lead: string; children: ReactNode }) {
+  return <div className="auth-layout">
+    <section className="auth-hero">
+      <Brand />
+      <div className="auth-hero-copy">
+        <span className="eyebrow on-dark"><span className="rec-dot" aria-hidden="true" /> {eyebrow}</span>
+        <h1>{title}</h1>
+        <p>{lead}</p>
+      </div>
+      <div className="hero-cards" aria-hidden="true">
+        <div className="hero-card c0"><span>Entry 012 · Rec</span><strong>Who wins the derby?</strong></div>
+        <div className="hero-card c1"><span>Entry 011 · Pressed</span><strong>Snow before Friday?</strong></div>
+        <div className="hero-card c2"><span>Entry 010 · Settled</span><strong>Mia called it. +1</strong></div>
+      </div>
+      <div className="ticker" aria-hidden="true"><div className="ticker-track">{[...sampleCalls, ...sampleCalls].map((call, index) => <span key={index}>{call}<i>●</i></span>)}</div></div>
+    </section>
+    <section className="auth-form-side">{children}</section>
+  </div>
 }
 
 function AuthScreen() {
@@ -83,33 +126,28 @@ function AuthScreen() {
     }
   }
 
-  return <div className="auth-layout">
-    <section className="auth-intro">
-      <div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div>
-      <div className="intro-copy">
-        <span className="eyebrow light">A SHARED LEDGER FOR FRIENDLY CALLS</span>
-        <h1>Say it now.<br /><em>Settle it later.</em></h1>
-        <p>Turn your group’s bold predictions into a record everyone can return to.</p>
+  return <AuthStage eyebrow="Predictions between friends" title={<>Call it.<br /><span className="hl">Prove it.</span></>} lead="Put your boldest predictions on record, let AI keep them fair, and settle who really called it.">
+    <div className="auth-card">
+      {mode !== 'forgot' && <div className="auth-switch" role="group" aria-label="Account">
+        <button type="button" aria-pressed={mode === 'register'} className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setMessage('') }}>Create account</button>
+        <button type="button" aria-pressed={mode === 'sign-in'} className={mode === 'sign-in' ? 'active' : ''} onClick={() => { setMode('sign-in'); setMessage('') }}>Sign in</button>
+        <span className={`auth-switch-thumb${mode === 'sign-in' ? ' right' : ''}`} aria-hidden="true" />
+      </div>}
+      <div className="auth-swap" key={mode}>
+      <h2>{mode === 'register' ? 'Start your record' : mode === 'forgot' ? 'Recover your account' : 'Welcome back'}</h2>
+      <p className="muted">{mode === 'register' ? 'One account keeps every prediction and rivalry together.' : mode === 'forgot' ? 'Enter your sign-in email. We will send a link to set a new password.' : 'Your friends and records are waiting.'}</p>
+      <form onSubmit={submit}>
+        {mode === 'register' && <label>Your name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} placeholder="What your friends call you" required autoComplete="name" /></label>}
+        <label>Email<input {...clipboardInputProps} value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
+        {mode !== 'forgot' && <label>Password<input {...clipboardInputProps} value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
+        <Toast message={message} onDismiss={() => setMessage('')} />
+        <button className="button primary full" disabled={busy}>{busy ? <><Disc size={20} /> One moment…</> : <>{mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <Icon name="arrow" size={18} /></>}</button>
+      </form>
       </div>
-      <div className="auth-footnote">THE ORIGINAL WORDS. THE FINAL RESULT. THE SCORE.</div>
-    </section>
-    <section className="auth-form-side">
-      <div className="auth-card">
-        <div className="folio-line"><span>ENTRY 001</span><span>MEMBERS ONLY</span></div>
-        <h2>{mode === 'register' ? 'Open your record book' : mode === 'forgot' ? 'Recover your account' : 'Welcome back'}</h2>
-        <p className="muted">{mode === 'register' ? 'One account keeps every prediction and rivalry together.' : mode === 'forgot' ? 'Enter your sign-in email. We will send a link to set a new password.' : 'Your friends and records are waiting.'}</p>
-        <form onSubmit={submit}>
-          {mode === 'register' && <label>Your name<input value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={40} placeholder="What your friends call you" required autoComplete="name" /></label>}
-          <label>Email<input {...clipboardInputProps} value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
-          {mode !== 'forgot' && <label>Password<input {...clipboardInputProps} value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
-          <Toast message={message} onDismiss={() => setMessage('')} />
-          <button className="button primary full" disabled={busy}>{busy ? 'One moment…' : mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <span aria-hidden>↗</span></button>
-        </form>
-        <button className="text-button auth-toggle" onClick={() => { setMode(mode === 'register' ? 'sign-in' : 'register'); setMessage('') }}>{mode === 'register' ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>
-        {mode !== 'register' && <button className="text-button auth-recovery" onClick={() => { setMode(mode === 'forgot' ? 'sign-in' : 'forgot'); setMessage('') }}>{mode === 'forgot' ? 'Back to sign in' : 'Forgot password?'}</button>}
-      </div>
-    </section>
-  </div>
+      {mode !== 'register' && <button className="text-button auth-recovery" onClick={() => { setMode(mode === 'forgot' ? 'sign-in' : 'forgot'); setMessage('') }}>{mode === 'forgot' ? 'Back to sign in' : 'Forgot password?'}</button>}
+      <p className="auth-fine">Original words stay. Results settle the score.</p>
+    </div>
+  </AuthStage>
 }
 
 function RecoveryPassword({ onComplete }: { onComplete: () => void }) {
@@ -132,17 +170,23 @@ function RecoveryPassword({ onComplete }: { onComplete: () => void }) {
     finally { setBusy(false) }
   }
 
-  return <div className="auth-layout"><section className="auth-intro"><div className="brand brand-large"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><div className="intro-copy"><span className="eyebrow light">ACCOUNT RECOVERY</span><h1>A fresh<br /><em>start.</em></h1><p>Set a new password and return to your record book.</p></div></section><section className="auth-form-side"><div className="auth-card"><div className="folio-line"><span>YOUR ACCOUNT</span><span>RECOVERY</span></div><h2>Choose a new password</h2><form onSubmit={submit}><label>New password<input {...clipboardInputProps} type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input {...clipboardInputProps} type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label><Toast message={message} onDismiss={() => setMessage('')} tone="error" /><button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <span aria-hidden>↗</span></button></form></div></section></div>
+  return <AuthStage eyebrow="Account recovery" title={<>Fresh<br /><span className="hl">start.</span></>} lead="Set a new password and get back to your record book.">
+    <div className="auth-card">
+      <span className="eyebrow">Your account</span>
+      <h2>Choose a new password</h2>
+      <form onSubmit={submit}><label>New password<input {...clipboardInputProps} type="password" value={password} onChange={event => setPassword(event.target.value)} minLength={6} required autoComplete="new-password" /></label><label>Confirm password<input {...clipboardInputProps} type="password" value={confirm} onChange={event => setConfirm(event.target.value)} minLength={6} required autoComplete="new-password" /></label><Toast message={message} onDismiss={() => setMessage('')} tone="error" /><button className="button primary full" disabled={busy}>{busy ? 'Saving…' : 'Save new password'} <Icon name="arrow" size={18} /></button></form>
+    </div>
+  </AuthStage>
 }
 
 function FriendsPanel({ connections, onNavigate, onOpenProfile }: { connections: FriendConnection[], onNavigate: () => void, onOpenProfile: (person: Profile) => void }) {
   const accepted = connections.filter(connection => connection.status === 'accepted')
   const incoming = connections.filter(connection => connection.status === 'pending' && connection.requested_by === connection.person.id)
-  return <aside className="friends-panel">
-    <div className="panel-heading"><div><span className="eyebrow">YOUR CIRCLE</span><h3>Friends <span>{accepted.length}</span></h3></div><button className="icon-button" onClick={onNavigate} aria-label="Manage friends">↗</button></div>
-    {accepted.length ? <div className="friend-list">{accepted.map(connection => <button className="friend-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)}><Avatar profile={connection.person} /><div><strong>{connection.person.display_name}</strong><small>View profile</small></div><span className="online-dot" /></button>)}</div> : <p className="panel-empty">Your circle starts with one friend. Add them using their ID.</p>}
-    {incoming.length > 0 && <div className="sidebar-note">{incoming.length} request{incoming.length === 1 ? '' : 's'} waiting <button onClick={onNavigate}>View requests →</button></div>}
-    <button className="button outlined full" onClick={onNavigate}>＋ Add a friend</button>
+  return <aside className="friends-panel" aria-label="Your rivals">
+    <div className="panel-heading"><div><span className="eyebrow">Your circle</span><h3>Rivals <span>{accepted.length}</span></h3></div><button className="icon-button" onClick={onNavigate} aria-label="Manage friends"><Icon name="arrow" size={16} /></button></div>
+    {accepted.length ? <div className="friend-list">{accepted.map((connection, index) => <button className="friend-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)} style={{ animationDelay: `${index * 50}ms` }}><Avatar profile={connection.person} /><span className="friend-row-text"><strong>{connection.person.display_name}</strong><small>{connection.person.headline || 'View profile'}</small></span><Icon name="arrow" size={14} /></button>)}</div> : <p className="panel-empty">Your circle starts with one friend. Add them using their ID.</p>}
+    {incoming.length > 0 && <button className="sidebar-note" onClick={onNavigate}><span className="rec-dot" aria-hidden="true" /> {incoming.length} request{incoming.length === 1 ? '' : 's'} waiting · View</button>}
+    <button className="button outlined full" onClick={onNavigate}>Add a friend <Icon name="plus" size={18} /></button>
   </aside>
 }
 
@@ -150,9 +194,16 @@ function FriendsPage({ profile, connections, refresh, onOpenProfile }: { profile
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  const [copied, setCopied] = useState(false)
   const incoming = connections.filter(connection => connection.status === 'pending' && connection.requested_by !== profile.id)
   const outgoing = connections.filter(connection => connection.status === 'pending' && connection.requested_by === profile.id)
   const accepted = connections.filter(connection => connection.status === 'accepted')
+
+  useEffect(() => {
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(false), 1800)
+    return () => window.clearTimeout(timer)
+  }, [copied])
 
   async function sendRequest(event: FormEvent) {
     event.preventDefault()
@@ -183,16 +234,31 @@ function FriendsPage({ profile, connections, refresh, onOpenProfile }: { profile
     } finally { setBusy(false) }
   }
 
-  return <div className="page-content">
-    <div className="page-topline"><span className="eyebrow">PEOPLE IN YOUR LEDGER</span><span>02 / CONNECTIONS</span></div>
-    <h1>Your circle<span className="period">.</span></h1>
-    <p className="page-lead">Exchange an ID once, then bring your friends into any new claim.</p>
+  return <div className="page-content friends-page">
+    <header className="page-hero">
+      <span className="eyebrow">Friends</span>
+      <h1>Your circle<span className="period">.</span></h1>
+      <p className="page-lead">Swap IDs once, then pull your friends into any new call.</p>
+    </header>
     <div className="friend-grid">
-      <section className="paper-card friend-add"><span className="eyebrow">INVITE BY ID</span><h2>Add a friend</h2><p>Ask your friend for their eight-character ID.</p><form className="code-form" onSubmit={sendRequest}><label className="sr-only" htmlFor="friend-code">Friend ID</label><input id="friend-code" value={code} onChange={event => setCode(event.target.value.toUpperCase())} maxLength={8} minLength={8} pattern="[A-Fa-f0-9]{8}" placeholder="E.G. A1B2C3D4" required /><button className="button primary" disabled={busy}>Send request</button></form><div className="your-code"><span>YOUR ID</span><strong>{profile.friend_code}</strong><button onClick={async () => { await navigator.clipboard.writeText(profile.friend_code); setMessage('Your ID was copied.') }}>Copy</button></div></section>
-      <section className="paper-card requests"><span className="eyebrow">INCOMING</span><h2>Requests <span className="count-pill">{incoming.length}</span></h2>{incoming.length ? incoming.map(connection => <div className="request-row" key={connection.id}><span className="avatar">{connection.person.display_name[0]}</span><div><strong>{connection.person.display_name}</strong><small>Wants to join your circle</small></div><button className="button small primary" disabled={busy} onClick={() => respond(connection.id, true)}>Accept</button><button className="text-button" disabled={busy} onClick={() => respond(connection.id, false)}>Decline</button></div>) : <p className="muted">No requests right now.</p>}</section>
+      <section className="card friend-add">
+        <div className="id-ticket">
+          <span className="eyebrow">Your ID</span>
+          <strong>{profile.friend_code}</strong>
+          <button className={`copy-button${copied ? ' copied' : ''}`} onClick={async () => { await navigator.clipboard.writeText(profile.friend_code); setCopied(true); setMessage('Your ID was copied.') }}><Icon name={copied ? 'check' : 'copy'} size={16} />{copied ? 'Copied' : 'Copy'}</button>
+        </div>
+        <h2>Add a friend</h2>
+        <p className="muted">Ask your friend for their eight-character ID.</p>
+        <form className="code-form" onSubmit={sendRequest}><label className="sr-only" htmlFor="friend-code">Friend ID</label><input id="friend-code" value={code} onChange={event => setCode(event.target.value.toUpperCase())} maxLength={8} minLength={8} pattern="[A-Fa-f0-9]{8}" placeholder="A1B2C3D4" required autoComplete="off" spellCheck={false} /><button className="button primary" disabled={busy}>Send request <Icon name="arrow" size={16} /></button></form>
+      </section>
+      <section className="card requests"><span className="eyebrow">Incoming</span><h2>Requests <span className="count-pill">{incoming.length}</span></h2>{incoming.length ? incoming.map(connection => <div className="request-row" key={connection.id}><Avatar profile={connection.person} /><div><strong>{connection.person.display_name}</strong><small>Wants to join your circle</small></div><span className="request-actions"><button className="button small primary" disabled={busy} onClick={() => respond(connection.id, true)}><Icon name="check" size={16} /> Accept</button><button className="text-button" disabled={busy} onClick={() => respond(connection.id, false)}>Decline</button></span></div>) : <p className="muted empty-mini">No requests right now.</p>}</section>
     </div>
     <Toast message={message} onDismiss={() => setMessage('')} />
-    <section className="connection-list"><div className="section-head"><h2>Connected friends</h2><span>{accepted.length} TOTAL</span></div>{accepted.length ? accepted.map(connection => <button className="connection-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)}><Avatar profile={connection.person} /><strong>{connection.person.display_name}</strong><span className="muted">{connection.person.headline || connection.person.friend_code}</span><span className="connection-status">VIEW PROFILE ↗</span></button>) : <div className="empty-line">No friends yet. Share your ID or send your first request.</div>}{outgoing.length > 0 && <><h3 className="subsection-title">Sent requests</h3>{outgoing.map(connection => <div className="connection-row" key={connection.id}><Avatar profile={connection.person} /><strong>{connection.person.display_name}</strong><span className="muted">Awaiting a response</span><span className="connection-status waiting">PENDING</span></div>)}</>}</section>
+    <section className="connection-list">
+      <div className="section-head"><h2>Connected friends</h2><span className="tag">{accepted.length} total</span></div>
+      {accepted.length ? <div className="connection-grid">{accepted.map((connection, index) => <button className="connection-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)} style={{ animationDelay: `${index * 45}ms` }}><Avatar profile={connection.person} /><span className="connection-text"><strong>{connection.person.display_name}</strong><small>{connection.person.headline || connection.person.friend_code}</small></span><span className="connection-status">Profile <Icon name="arrow" size={14} /></span></button>)}</div> : <div className="empty-state"><Disc size={44} spinning={false} /><p>No friends yet. Share your ID or send your first request.</p></div>}
+      {outgoing.length > 0 && <><h3 className="subsection-title">Sent requests</h3><div className="connection-grid">{outgoing.map(connection => <div className="connection-row" key={connection.id}><Avatar profile={connection.person} /><span className="connection-text"><strong>{connection.person.display_name}</strong><small>Awaiting a response</small></span><span className="connection-status waiting">Pending</span></div>)}</div></>}
+    </section>
   </div>
 }
 
@@ -202,6 +268,7 @@ function App() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [connections, setConnections] = useState<FriendConnection[]>([])
   const [view, setView] = useState<AppView>(() => readAppView(window.history.state))
+  const [direction, setDirection] = useState<Direction>('forward')
   const viewRef = useRef(view)
   const [error, setError] = useState('')
   const [dueCount, setDueCount] = useState(0)
@@ -211,6 +278,7 @@ function App() {
     window.history.replaceState(historyStateWith(viewRef.current), '')
     const restoreView = (event: PopStateEvent) => {
       const previous = readAppView(event.state)
+      setDirection(previous.depth < viewRef.current.depth ? 'back' : 'forward')
       viewRef.current = previous
       setView(previous)
       window.scrollTo(0, 0)
@@ -224,6 +292,7 @@ function App() {
     if (current.section === section && current.profileId === profileId) return
     const next: AppView = { section, profileId, depth: current.depth + 1 }
     window.history.pushState(historyStateWith(next), '')
+    setDirection(sections.indexOf(section) < sections.indexOf(current.section) ? 'back' : 'forward')
     viewRef.current = next
     setView(next)
     window.scrollTo(0, 0)
@@ -290,12 +359,12 @@ function App() {
     return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', checkDue) }
   }, [session?.user.id])
 
-  if (!supabase) return <div className="setup-message"><div className="brand"><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></div><h1>Connect your record book</h1><p>Copy <code>.env.example</code> to <code>.env</code> and enter your Supabase project URL and publishable key. Then restart the development server.</p></div>
+  if (!supabase) return <div className="setup-message"><Brand /><h1>Connect your record book</h1><p>Copy <code>.env.example</code> to <code>.env</code> and enter your Supabase project URL and publishable key. Then restart the development server.</p></div>
   const activeClient = supabase
-  if (loading || (session && !profile && !error)) return <div className="loading-screen">Opening the record book…</div>
+  if (loading || (session && !profile && !error)) return <div className="loading-screen" role="status"><Disc size={72} /><p>Cueing up your records…</p></div>
   if (!session) return <AuthScreen />
   if (recoveryMode) return <RecoveryPassword onComplete={() => { setRecoveryMode(false); window.history.replaceState(historyStateWith(viewRef.current), '', window.location.pathname) }} />
-  if (error) return <div className="setup-message"><h1>Could not open the record book</h1><p>{error}</p><button className="button primary" onClick={() => void refresh()}>Try again</button><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out</button></div>
+  if (error) return <div className="setup-message"><Brand /><h1>Could not open the record book</h1><p>{error}</p><div className="setup-actions"><button className="button primary" onClick={() => void refresh()}>Try again</button><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out</button></div></div>
   if (!profile) return null
 
   const section = view.section
@@ -304,19 +373,44 @@ function App() {
   const ownProfile = () => navigate('profile')
   const viewedProfile = view.profileId ? connections.find(connection => connection.person.id === view.profileId)?.person : undefined
   const visibleProfile = viewedProfile || profile
+  const activeIndex = sections.indexOf(section)
+  const counts: Partial<Record<Section, number>> = { friends: pendingCount, notices: dueCount }
+  const go = (target: Section) => target === 'profile' ? ownProfile() : navigate(target)
+  const navButtons = (variant: 'rail' | 'tab') => navItems.map(item => <button key={item.section} className={section === item.section ? 'active' : ''} aria-current={section === item.section ? 'page' : undefined} onClick={() => go(item.section)}>
+    <span className="nav-icon"><Icon name={item.icon} size={variant === 'rail' ? 20 : 22} />{counts[item.section] ? <b className="nav-count" aria-label={`${counts[item.section]} new`}>{counts[item.section]}</b> : null}</span>
+    <span className="nav-text">{item.section === 'profile' && variant === 'rail' ? 'My profile' : item.label}</span>
+  </button>)
+
   return <div className="app-shell">
-    <header className="app-header"><div className="header-leading"><button className="brand" onClick={() => navigate('records')}><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></button>{view.depth > 0 && <button className="header-back" onClick={goBack} aria-label="Go back to previous page">← Back</button>}</div><span className="header-subtitle">THE FRIENDSHIP LEDGER</span><button className="header-user profile-link" onClick={ownProfile} aria-label="Open my profile"><Avatar profile={profile} /><span>{profile.display_name}</span></button></header>
-    <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => navigate('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => navigate('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => navigate('notices')}><span>◷</span> Notices {dueCount > 0 && <b className="nav-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => navigate('scores')}><span>◇</span> Scores</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
-      <main>
-        {section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}
-        {section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} onOpenProfile={openProfile} />}
-        {section === 'notices' && <NoticesPage profile={profile} />}
-        {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} onOpenNotices={() => navigate('notices')} />}
-        {section === 'profile' && <ProfilePage profile={visibleProfile} own={!viewedProfile} onSaved={refresh} onBack={goBack} signOut={() => void activeClient.auth.signOut()} />}
+    <a className="skip-link" href="#main">Skip to content</a>
+    <header className="app-header">
+      <div className="header-leading"><Brand onClick={() => navigate('records')} />{view.depth > 0 && <button className="header-back" onClick={goBack} aria-label="Go back to previous page"><Icon name="back" size={16} /><span>Back</span></button>}</div>
+      <div className="header-trailing">
+        {dueCount > 0 && section !== 'notices' && <button className="due-pill" onClick={() => navigate('notices')}><span className="rec-dot" aria-hidden="true" />{dueCount} to settle</button>}
+        <button className="header-user profile-link" onClick={ownProfile} aria-label="Open my profile"><Avatar profile={profile} /><span>{profile.display_name}</span></button>
+      </div>
+    </header>
+    <div className="app-body">
+      <nav className="main-nav" aria-label="Main navigation" style={{ '--i': activeIndex } as CSSProperties}>
+        <span className="nav-indicator" aria-hidden="true" />
+        {navButtons('rail')}
+        <div className="nav-bottom"><Disc size={26} spinning={false} /><small>Made for calls that count.</small></div>
+      </nav>
+      <main id="main" tabIndex={-1}>
+        <div key={`${section}:${view.profileId || ''}`} className={`page-stage enter-${direction}`}>
+          {section === 'records' && <ClaimWorkspace profile={profile} connections={connections} onOpenNotices={() => navigate('notices')} />}
+          {section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} onOpenProfile={openProfile} />}
+          {section === 'notices' && <NoticesPage profile={profile} />}
+          {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} onOpenNotices={() => navigate('notices')} />}
+          {section === 'profile' && <ProfilePage profile={visibleProfile} own={!viewedProfile} onSaved={refresh} onBack={goBack} signOut={() => void activeClient.auth.signOut()} />}
+        </div>
       </main>
       <FriendsPanel connections={connections} onNavigate={() => navigate('friends')} onOpenProfile={openProfile} />
     </div>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => navigate('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => navigate('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => navigate('notices')}><span>◷</span>Notices{dueCount > 0 && <b className="mobile-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => navigate('scores')}><span>◇</span>Scores</button><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span>Profile</button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation" style={{ '--i': activeIndex } as CSSProperties}>
+      <span className="tab-indicator" aria-hidden="true" />
+      {navButtons('tab')}
+    </nav>
     <UpdateNotice />
   </div>
 }
