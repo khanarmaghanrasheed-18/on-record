@@ -1,8 +1,10 @@
-# On Record — handoff for the next chat (2026-10-20)
+# On Record — handoff for the next chat (updated 2026-10-21)
 
 ## Read this first
 
-Continue the existing React/Vite PWA in this repository; do not restart the project. The user's latest live report is: **password recovery through the sign-in email works**. The user is moving chats and requested this complete handoff. The most recent feature commit before this handoff is `2e53730` (`Add recovery profiles and timed answer corrections`), pushed to `main` at <https://github.com/khanarmaghanrasheed-18/on-record>. Use `git status` and the latest commit to see whether any newer work has landed.
+Continue the existing React/Vite PWA in this repository; do not restart the project. The latest reviewed `main` commit is Claude's `cd1752b` (`Correct handoff notes on navigation and deployment`), after visual redesign commits `5a8e539` and `c65c581`. The local checkout was fast-forwarded to that commit on 2026-10-21, and `npm.cmd run build` passed. The owner asked for a submission-readiness audit and for this handoff to reflect Claude's work. Use `git status` and `git log` for newer changes.
+
+**Submission readiness at this audit:** The functional proof of concept has substantial live evidence from before Claude's redesign, and the redesigned source builds. It is not yet a verified submission package. The latest Cloudflare deployment and installed-phone flows have not been checked after the redesign; the public status of the GitHub repository was not independently confirmed; no public demo video or final Devpost description was provided; the learner's final review and `devpost/app-map.html` remain open. Three-person group majority and its pairwise scoring are still deliberately unverified. The rules require a public licensed repository with the planning docs, a video under three minutes on YouTube/Vimeo, and a description matching demonstrated behavior. Deadline: 2026-10-26 5:00pm EDT (2026-10-27 2:00am PKT). Source: <https://learn-ai-basics.devpost.com/rules>.
 
 **Latest setup report:** The owner confirmed migrations 003/004 and deployed the pragmatic yes/no `clarify-claim/index.ts` prompt without errors. Live Gemini then accepted the informal negative OOP claim and rejected the subjective fun claim. A subsequent outcome-label cleanup in `clarify-claim/index.ts` needs redeployment.
 
@@ -24,7 +26,7 @@ Latest learner feedback confirms auth clipboard shortcuts, profile photo/bio vis
 - The user chose **fast build mode** and said to write all code before testing individual features. They want progress pushed to GitHub alongside work.
 - The owner later explicitly authorized local-app browser testing and creating a few claims with care for Gemini API limits. The earlier browser restriction still applies to unrelated sites and Supabase Dashboard.
 - Never request passwords, a service-role key, or the Gemini API key in chat. The user handles credential entry privately.
-- Preserve the free-cost goal. A phone-installable PWA is the chosen route; Cloudflare Pages deployment is planned, not yet confirmed live.
+- Preserve the free-cost goal. A phone-installable PWA is the chosen route; the owner reported the Cloudflare Pages site and phone installation working before Claude's redesign.
 - Use the local Devpost Learn Skill Pack in `.agents/skills/`, especially `5-build/SKILL.md` while finishing and `6-ship/SKILL.md` only after build review is complete. The approved planning docs are `devpost/scope.md`, `prd.md`, `spec.md`, and `checklist.md`. The private `devpost/learner-profile.md` is Git-ignored.
 
 ## Product and agreed behavior
@@ -41,26 +43,25 @@ Profiles are opened from the top-right header, Friends, or Scores. The owner can
 - The original five migrations through `202610200002_claim_revisions.sql` ran successfully. The earlier `clarify-claim` function was deployed with legacy **Verify JWT off** and `GEMINI_API_KEY` stored privately as an Edge Function secret.
 - A clear two-person coin-flip claim locked with both answers. Gemini rejected a subjective “weather will be awesome” claim. The creator's revised-topic/fresh-answer flow worked. The saved-answer confirmation card was seen live.
 - **Password recovery email and reset logic work**, per the user's latest report. Do not re-test unless a later change affects it.
-- Later learner testing confirmed score updates, friend-visible profile photo/bio, post-lock answer editing, and Ctrl+C/V/X in auth fields. Group scoring, revised Gemini wording, hosted deployment, and phone installation remain unverified.
+- Later learner testing confirmed score updates, friend-visible profile photo/bio, post-lock answer editing, and Ctrl+C/V/X in auth fields. The owner reported hosting and phone installation working before the redesign. Group scoring and the redesigned live experience remain unverified.
 
 ## Implementation and setup state
 
-- Stack: React/TypeScript/Vite PWA, Supabase Auth/Postgres/Storage/Edge Function, Gemini clarity check, intended Cloudflare Pages HTTPS hosting.
+- Stack: React/TypeScript/Vite PWA, Supabase Auth/Postgres/Storage/Edge Function, Gemini clarity check, Cloudflare Pages HTTPS hosting.
 - Supabase project ref: `skgajmkjiqbbplwvxqml`; project URL: `https://skgajmkjiqbbplwvxqml.supabase.co`. The local ignored `.env` has the public URL/publishable key; never commit it. Supabase CLI, Docker, psql, and gh were unavailable earlier; Git pushing worked with an escalated terminal command.
 - `src/App.tsx`: auth, reset-password UI, shell, friends, profile navigation. `src/components/ProfilePage.tsx` and `Avatar.tsx`: profile editing/view, photo upload. `src/components/ClaimWorkspace.tsx`: claims, AI feedback, saved-answer state, locked-answer correction. `src/components/NoticesPage.tsx` and `ScoresPage.tsx`: settlement and pairwise scores. `src/lib/claims.ts` and `supabase.ts`: client/data helpers. `src/styles.css`: responsive record-book styling and vibrant cards.
 - Migrations `202610190001` through `202610200004` are reported live. Migration 003 adds profile columns and a public owner-scoped photo bucket; 004 enforces the five-minute correction window.
 - `supabase/functions/clarify-claim/index.ts` accepts a proposed answer revision, rechecks it with Gemini, and calls a service-role-only atomic RPC. The owner deployed the pragmatic yes/no prompt; the later outcome-label cleanup still needs redeployment. Keep Verify JWT off: the function calls `auth.getUser` to verify the session. The existing Gemini secret persists.
-- The app uses Supabase Auth's `resetPasswordForEmail` and `updateUser`; the user tested this successfully. On a future hosted deployment, allow the hosted origin under Supabase Authentication → URL Configuration so reset and confirmation links return to the app.
-- The current build passed `npm.cmd run build` (TypeScript and Vite; PWA output generated). A local production preview loaded its sign-up screen; the standalone manifest, 192/512 icons, and service worker were present. This does **not** validate the latest Edge Function against Gemini or phone installation. There is no confirmed Cloudflare Pages deployment.
+- The app uses Supabase Auth's `resetPasswordForEmail` and `updateUser`; the user tested this successfully. Whether the hosted origin is configured under Supabase Authentication → URL Configuration has not been explicitly confirmed.
+- Claude's `cd1752b` build passed `npm.cmd run build` (TypeScript and Vite; PWA output generated). Earlier local preview checks found the manifest, 192/512 icons, and service worker. The owner confirmed an earlier Cloudflare deployment and phone installation, but the redesigned commit's live deployment and installed-phone behavior are not yet confirmed.
 - `README.md` has setup, deployment, demo steps, scoring rules, and photo privacy. The photo bucket is public for delivery; anyone with a photo URL can view that image. The PWA caches static assets, not account/claim responses.
 
 ## Next checkpoint, in order
 
-1. Check `git status`, the latest commit, and `devpost/checklist.md`. Migrations 003/004 are live. Redeploy the latest `clarify-claim/index.ts` for future clean outcome labels; no SQL change is needed.
-2. Entry 004 (`330A34CA`) locked after Arman2 submitted the opposite answer. The AI mapped Arman to "he will not take the class" and Arman2 to "he will take the class" but generated misleading Yes/No prefixes alongside a positive shared question. The UI cleanup removes those prefixes while preserving stored option values for voting and scoring. The owner revised an answer and saw the successful AI recheck toast. The edit action disappeared at the original five-minute deadline in the local app. Entry 005 (`9CB98D16`) was rejected as subjective with visible Needs attention feedback; it remains collecting and can be revised or left as a negative test.
-3. Have the owner test own profile name/title/bio/photo and the friend's read-only view; inspect any error they report. Brighter card colors should also be visible.
-4. The existing settled OOP record's Notices view visibly showed the creator tiebreak, each prediction and correctness, and Arman's one-point award. Scores showed Arman 2–0 across two settled records with Contender rank; reloading left totals unchanged. The owner deferred the three-person group check, so leave it unverified until they choose to revisit it.
-5. Deploy the GitHub repository to Cloudflare Pages as described in `README.md`, set only public build variables, configure Supabase Auth redirect URLs, and have the owner test installation and navigation on a phone. The latest Edge Function redeploy is in progress; confirm its result when the owner returns. Do the final learner review, code tour/app map, and then `6-ship` submission work.
+1. Confirm which `main` commit Cloudflare Pages currently serves; Claude reported no automatic deployment for `c65c581`. If the latest commit did not deploy, create a deployment from `main` and inspect Git integration. Confirm the outcome-label Edge Function redeploy and Supabase Auth redirect configuration if those flows will appear in the demo.
+2. On the hosted redesigned build, do one concise phone/two-account pass: install/open, tab/detail/form/notice Back and Forward, create and AI-lock a clear claim, reject a subjective claim, settle a due claim, and verify the result and score after reload. The owner deferred three-person group testing; keep that separate unless they opt in.
+3. Get the learner's final design and behavior review. Complete the learning wrap-up and generate/check `devpost/app-map.html` as required by the build workflow.
+4. Run `6-ship`: confirm the repository is publicly accessible and its MIT license visible, prepare a truthful short description, record/upload a public demo video under three minutes, and finish the Devpost submission before the deadline. Do not treat the build or older live reports as proof that Claude's commit is live.
 
 ## Verification and Git discipline
 
