@@ -103,7 +103,7 @@ export default function ProfilePage({ profile, own, onSaved, onBack, signOut }: 
 
   return <div className="page-content profile-page">
     <div className="page-topline"><span className="eyebrow">{own ? 'ACCOUNT DETAILS' : 'FRIEND PROFILE'}</span><span>05 / PROFILE</span></div>
-    {!own && <button className="back-link" onClick={onBack}>← Back to friends</button>}
+    {!own && <button className="back-link" onClick={onBack}>← Back</button>}
     <h1>{own ? 'Your profile' : profile.display_name}<span className="period">.</span></h1>
     <Toast message={message} onDismiss={() => setMessage('')} />
     <div className="paper-card profile-card"><Avatar profile={profile} large /><div className="profile-identity"><span className="eyebrow">{stats?.title?.toUpperCase() || 'MEMBER OF THE RECORD'}</span><h2>{profile.display_name}</h2>{profile.headline && <strong className="profile-headline">{profile.headline}</strong>}<p>{profile.bio || (own ? 'Add a few words about yourself below.' : 'No bio yet.')}</p><small>{stats ? `${stats.correct_claims} correct calls · ${stats.settled_claims} settled records` : 'Records are being counted.'}</small>{own && <p>Your friend ID: <strong>{profile.friend_code}</strong></p>}</div></div>

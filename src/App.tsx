@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase, type FriendConnection, type Friendship, type Profile } from './lib/supabase'
 import ClaimWorkspace from './components/ClaimWorkspace'
@@ -11,6 +11,24 @@ import { UpdateNotice } from './components/InstallActions'
 import { isDue, listClaims } from './lib/claims'
 
 type Section = 'records' | 'friends' | 'notices' | 'scores' | 'profile'
+type AppView = { section: Section; profileId?: string; depth: number }
+
+const homeView: AppView = { section: 'records', depth: 0 }
+const sections: Section[] = ['records', 'friends', 'notices', 'scores', 'profile']
+
+function readAppView(state: unknown): AppView {
+  if (!state || typeof state !== 'object' || !('__onRecordView' in state)) return homeView
+  const saved = state.__onRecordView
+  if (!saved || typeof saved !== 'object' || !('section' in saved) || !sections.includes(saved.section as Section)) return homeView
+  const depth = 'depth' in saved && typeof saved.depth === 'number' && Number.isInteger(saved.depth) && saved.depth >= 0 ? saved.depth : 0
+  const profileId = saved.section === 'profile' && 'profileId' in saved && typeof saved.profileId === 'string' ? saved.profileId : undefined
+  return { section: saved.section as Section, profileId, depth }
+}
+
+function historyStateWith(view: AppView) {
+  const current = window.history.state
+  return { ...(current && typeof current === 'object' ? current : {}), __onRecordView: view }
+}
 
 // Keep editing shortcuts inside auth fields while leaving the browser's native
 // copy, cut, paste, selection, and undo behavior intact.
@@ -183,11 +201,38 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [connections, setConnections] = useState<FriendConnection[]>([])
-  const [section, setSection] = useState<Section>('records')
+  const [view, setView] = useState<AppView>(() => readAppView(window.history.state))
+  const viewRef = useRef(view)
   const [error, setError] = useState('')
   const [dueCount, setDueCount] = useState(0)
   const [recoveryMode, setRecoveryMode] = useState(false)
-  const [viewedProfile, setViewedProfile] = useState<Profile | null>(null)
+
+  useEffect(() => {
+    window.history.replaceState(historyStateWith(viewRef.current), '')
+    const restoreView = (event: PopStateEvent) => {
+      const previous = readAppView(event.state)
+      viewRef.current = previous
+      setView(previous)
+      window.scrollTo(0, 0)
+    }
+    window.addEventListener('popstate', restoreView)
+    return () => window.removeEventListener('popstate', restoreView)
+  }, [])
+
+  const navigate = useCallback((section: Section, profileId?: string) => {
+    const current = viewRef.current
+    if (current.section === section && current.profileId === profileId) return
+    const next: AppView = { section, profileId, depth: current.depth + 1 }
+    window.history.pushState(historyStateWith(next), '')
+    viewRef.current = next
+    setView(next)
+    window.scrollTo(0, 0)
+  }, [])
+
+  const goBack = useCallback(() => {
+    if (viewRef.current.depth > 0) window.history.back()
+    else navigate('friends')
+  }, [navigate])
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return }
@@ -249,27 +294,29 @@ function App() {
   const activeClient = supabase
   if (loading || (session && !profile && !error)) return <div className="loading-screen">Opening the record book…</div>
   if (!session) return <AuthScreen />
-  if (recoveryMode) return <RecoveryPassword onComplete={() => { setRecoveryMode(false); window.history.replaceState({}, '', window.location.pathname) }} />
+  if (recoveryMode) return <RecoveryPassword onComplete={() => { setRecoveryMode(false); window.history.replaceState(historyStateWith(viewRef.current), '', window.location.pathname) }} />
   if (error) return <div className="setup-message"><h1>Could not open the record book</h1><p>{error}</p><button className="button primary" onClick={() => void refresh()}>Try again</button><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out</button></div>
   if (!profile) return null
 
+  const section = view.section
   const pendingCount = connections.filter(connection => connection.status === 'pending' && connection.requested_by !== profile.id).length
-  const openProfile = (person: Profile) => { setViewedProfile(person); setSection('profile') }
-  const ownProfile = () => { setViewedProfile(null); setSection('profile') }
-  const visibleProfile = viewedProfile ? connections.find(connection => connection.person.id === viewedProfile.id)?.person || viewedProfile : profile
+  const openProfile = (person: Profile) => navigate('profile', person.id)
+  const ownProfile = () => navigate('profile')
+  const viewedProfile = view.profileId ? connections.find(connection => connection.person.id === view.profileId)?.person : undefined
+  const visibleProfile = viewedProfile || profile
   return <div className="app-shell">
-    <header className="app-header"><button className="brand" onClick={() => setSection('records')}><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></button><span className="header-subtitle">THE FRIENDSHIP LEDGER</span><button className="header-user profile-link" onClick={ownProfile} aria-label="Open my profile"><Avatar profile={profile} /><span>{profile.display_name}</span></button></header>
-    <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span> Notices {dueCount > 0 && <b className="nav-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => setSection('scores')}><span>◇</span> Scores</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
+    <header className="app-header"><div className="header-leading"><button className="brand" onClick={() => navigate('records')}><span className="brand-mark">OR<span>●</span></span><span>ON RECORD</span></button>{view.depth > 0 && <button className="header-back" onClick={goBack} aria-label="Go back to previous page">← Back</button>}</div><span className="header-subtitle">THE FRIENDSHIP LEDGER</span><button className="header-user profile-link" onClick={ownProfile} aria-label="Open my profile"><Avatar profile={profile} /><span>{profile.display_name}</span></button></header>
+    <div className="app-body"><nav className="main-nav" aria-label="Main navigation"><div className="nav-label">THE BOOK</div><button className={section === 'records' ? 'active' : ''} onClick={() => navigate('records')}><span>▤</span> Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => navigate('friends')}><span>♧</span> Friends {pendingCount > 0 && <b className="nav-count">{pendingCount}</b>}</button><button className={section === 'notices' ? 'active' : ''} onClick={() => navigate('notices')}><span>◷</span> Notices {dueCount > 0 && <b className="nav-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => navigate('scores')}><span>◇</span> Scores</button><div className="nav-separator" /><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span> My profile</button><div className="nav-bottom"><span>VOL. 01</span><small>Made for calls that count.</small></div></nav>
       <main>
         {section === 'records' && <ClaimWorkspace profile={profile} connections={connections} />}
         {section === 'friends' && <FriendsPage profile={profile} connections={connections} refresh={refresh} onOpenProfile={openProfile} />}
         {section === 'notices' && <NoticesPage profile={profile} />}
-        {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} onOpenNotices={() => setSection('notices')} />}
-        {section === 'profile' && <ProfilePage profile={visibleProfile} own={!viewedProfile} onSaved={refresh} onBack={() => setSection('friends')} signOut={() => void activeClient.auth.signOut()} />}
+        {section === 'scores' && <ScoresPage profile={profile} connections={connections} onOpenProfile={openProfile} onOpenNotices={() => navigate('notices')} />}
+        {section === 'profile' && <ProfilePage profile={visibleProfile} own={!viewedProfile} onSaved={refresh} onBack={goBack} signOut={() => void activeClient.auth.signOut()} />}
       </main>
-      <FriendsPanel connections={connections} onNavigate={() => setSection('friends')} onOpenProfile={openProfile} />
+      <FriendsPanel connections={connections} onNavigate={() => navigate('friends')} onOpenProfile={openProfile} />
     </div>
-    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => setSection('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => setSection('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => setSection('notices')}><span>◷</span>Notices{dueCount > 0 && <b className="mobile-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => setSection('scores')}><span>◇</span>Scores</button><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span>Profile</button></nav>
+    <nav className="mobile-nav" aria-label="Mobile navigation"><button className={section === 'records' ? 'active' : ''} onClick={() => navigate('records')}><span>▤</span>Records</button><button className={section === 'friends' ? 'active' : ''} onClick={() => navigate('friends')}><span>♧</span>Friends</button><button className={section === 'notices' ? 'active' : ''} onClick={() => navigate('notices')}><span>◷</span>Notices{dueCount > 0 && <b className="mobile-count">{dueCount}</b>}</button><button className={section === 'scores' ? 'active' : ''} onClick={() => navigate('scores')}><span>◇</span>Scores</button><button className={section === 'profile' ? 'active' : ''} onClick={ownProfile}><span>◉</span>Profile</button></nav>
     <UpdateNotice />
   </div>
 }

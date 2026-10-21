@@ -57,6 +57,8 @@ Build mode: fast
 ## Final Review
 
 - [ ] Final review complete — feedback resolved and learner confirms ready to ship.
+- [ ] Hosted phone Back/Forward navigation rechecked after the history update.
+- [ ] Learner reviews the requested Claude Code visual redesign and core flows remain usable.
 
 ## Code Tour and App Map
 
@@ -71,6 +73,7 @@ Reflection: not yet started.
 Activity mode: not yet started.
 
 ## Revisions
+- 2026-10-21: The learner reports that Cloudflare Pages hosting at `https://on-record-2rs.pages.dev/` and phone installation work. They found that mobile swipe/browser Back exited instead of returning to the previous tab. Tab and profile changes now create browser history entries, Back/Forward restores them, a visible header Back action was added, and the friend-profile Back link follows actual history. The production build passes; the hosted behavior awaits learner verification. The learner also requested an external Claude Code visual redesign for students aged 16–24 with purposeful motion; preserve the existing app behavior during that pass.
 - 2026-10-20: The learner asked to defer group-flow testing and continue toward hosting while they redeploy the latest AI function. Group majority remains unverified. The repo now pins the Cloudflare Pages Node version, sends sign-up confirmation emails back to the requesting app origin, and documents the exact Pages variables and Supabase redirect URLs. The production build passes; hosted deployment and phone installation remain open.
 - 2026-10-20: Reopened the existing settled OOP record in Notices and confirmed the result view names the creator tiebreak, both predictions, correctness, and the one-point award. Scores showed Arman 2–0 against Arman2 across two shared settled records, and reload kept the same totals and earned Contender title. A production Vite preview loaded; the generated standalone manifest, 192/512 icons, and service worker were present. The install guidance now uses the fixed notification popup. Group majority and phone installation remain for the learner's live check.
 - 2026-10-20: Live two-account checks confirmed Entry 004's informal negative OOP claim locked with opposite answers, and Entry 005's subjective "fun" claim was rejected with a visible Needs attention popup. The owner then revised an answer on Entry 004, and the app confirmed AI rechecked it. The edit action disappeared when the original five-minute deadline passed. The locked record exposed confusing "Yes, he will not..." and "No, he will..." option labels alongside a positive shared question. The UI now shows the descriptive outcomes without those prefixes, and the Edge Function now requests and stores standalone outcome labels. This latest Edge Function change needs redeployment; group scoring and hosted install remain to verify.

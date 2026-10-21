@@ -105,6 +105,11 @@
 .update-notice .button{background:#f3ecdb;color:#23483a;white-space:nowrap}
 @media(max-width:760px){.reschedule-form{display:grid;margin-top:12px}.reschedule-form .button{margin-top:0}.update-notice{bottom:70px;align-items:flex-start;flex-direction:column}}
 .mobile-nav button{position:relative}
+.header-leading{display:flex;align-items:center;gap:18px;min-width:0}
+.header-back{border:1px solid #cfd8cd;border-radius:999px;background:#f3f7f0;color:#285441;padding:7px 11px;font-size:11px;font-weight:700;white-space:nowrap}
+.header-back:hover{background:#e1ecdf}
+.header-back:focus-visible{outline:2px solid #285441;outline-offset:2px}
+@media(max-width:760px){.header-leading{gap:10px}.header-back{padding:6px 9px;font-size:10px}}
 .mobile-count{position:absolute;top:7px;right:20%;border-radius:50%;background:#bd7754;color:#fff;min-width:15px;height:15px;display:grid;place-items:center;font-size:9px}
 
 .app-toast{position:fixed;z-index:50;right:22px;bottom:22px;display:flex;align-items:flex-start;gap:18px;width:min(460px,calc(100vw - 32px));padding:16px 18px;border:1px solid #b9d1bd;border-left:5px solid #2d7651;border-radius:6px;background:#f7fff6;color:#234437;box-shadow:0 14px 42px #142f2750}
