@@ -2,29 +2,48 @@
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1] / "public"
 ROOT.mkdir(exist_ok=True)
+INK, LIME, WHITE, TEAL = "#0f1b1d", "#c6f432", "#ffffff", "#2fd3b5"
 
 
 def icon(size: int) -> None:
-    scale = size / 512
-    image = Image.new("RGB", (size, size), "#17141f")
-    draw = ImageDraw.Draw(image)
+    # Draw the OR monogram from the app's 52-unit logo grid at 4x, then scale
+    # down. The mark sits inside the maskable safe zone.
+    big = size * 4
+    unit = big * 400 / 512 / 52
+    offset = (big - 52 * unit) / 2
+    stroke = round(7 * unit)
 
-    def circle(cx: float, cy: float, r: float, **style) -> None:
-        draw.ellipse(tuple(round(v * scale) for v in (cx - r, cy - r, cx + r, cy + r)), **style)
+    def at(x: float, y: float) -> tuple[float, float]:
+        return offset + x * unit, offset + y * unit
 
-    # A vinyl disc inside the maskable safe zone, with grooves, a volt label,
-    # and the coral "recording" light.
-    circle(256, 256, 190, fill="#2a2536")
-    for radius in (172, 150, 128):
-        circle(256, 256, radius, outline="#3a3548", width=max(1, round(5 * scale)))
-    circle(256, 256, 84, fill="#c6f432")
-    circle(256, 256, 18, fill="#17141f")
-    circle(318, 214, 22, fill="#ff6a3d")
-    image.save(ROOT / f"icon-{size}.png", optimize=True)
+    def dot(draw: ImageDraw.ImageDraw, x: float, y: float) -> None:
+        cx, cy = at(x, y)
+        draw.ellipse((cx - stroke / 2, cy - stroke / 2, cx + stroke / 2, cy + stroke / 2), fill=255)
+
+    o_mask = Image.new("L", (big, big), 0)
+    cx, cy = at(21, 26)
+    outer = (12 + 3.5) * unit
+    ImageDraw.Draw(o_mask).ellipse((cx - outer, cy - outer, cx + outer, cy + outer), outline=255, width=stroke)
+
+    r_mask = Image.new("L", (big, big), 0)
+    draw = ImageDraw.Draw(r_mask)
+    for start, end in (((28, 39), (28, 14)), ((28, 14), (34, 14)), ((34, 27), (28, 27)), ((33.5, 27), (40.5, 39))):
+        draw.line((*at(*start), *at(*end)), fill=255, width=stroke)
+        dot(draw, *start)
+        dot(draw, *end)
+    bx, by = at(34, 20.5)
+    bowl = (6.5 + 3.5) * unit
+    draw.arc((bx - bowl, by - bowl, bx + bowl, by + bowl), 270, 90, fill=255, width=stroke)
+
+    image = Image.new("RGB", (big, big), INK)
+    image.paste(LIME, mask=o_mask)
+    image.paste(WHITE, mask=r_mask)
+    image.paste(TEAL, mask=ImageChops.multiply(o_mask, r_mask))
+    image.resize((size, size), Image.LANCZOS).save(ROOT / f"icon-{size}.png", optimize=True)
 
 
 for dimension in (192, 512):

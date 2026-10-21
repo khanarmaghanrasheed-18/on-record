@@ -28,15 +28,26 @@ export default function Icon({ name, size = 20 }: { name: IconName; size?: numbe
   return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{paths[name]}</svg>
 }
 
-// The On Record disc: a vinyl with a volt label and a coral "recording" light.
-export function Disc({ size = 36, spinning = true }: { size?: number; spinning?: boolean }) {
-  return <svg className={`disc${spinning ? ' spinning' : ''}`} width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-    <circle cx="24" cy="24" r="23" fill="#17141f" />
-    <circle cx="24" cy="24" r="18.5" fill="none" stroke="#3a3548" strokeWidth="1" />
-    <circle cx="24" cy="24" r="15" fill="none" stroke="#3a3548" strokeWidth="1" />
-    <path d="M10 17a16 16 0 0 1 9-8" fill="none" stroke="#8d86a3" strokeWidth="1.6" strokeLinecap="round" />
-    <circle cx="24" cy="24" r="9" fill="#c6f432" />
-    <circle cx="24" cy="24" r="2.2" fill="#17141f" />
-    <circle cx="30" cy="20" r="2" fill="#ff6a3d" />
+// The On Record monogram: an O and an R that overlap, where volt lime and white
+// mix into teal.
+const rPath = 'M28 39V14h6a6.5 6.5 0 0 1 0 13h-6M33.5 27l7 12'
+
+export function Logo({ size = 36 }: { size?: number }) {
+  return <svg className="logo" width={size} height={size} viewBox="0 0 52 52" aria-hidden="true" focusable="false">
+    <defs><mask id="or-overlap"><rect width="52" height="52" fill="#000" /><circle cx="21" cy="26" r="12" fill="none" stroke="#fff" strokeWidth="7" /></mask></defs>
+    <rect width="52" height="52" rx="14" fill="#0f1b1d" />
+    <circle cx="21" cy="26" r="12" fill="none" stroke="#c6f432" strokeWidth="7" />
+    <g fill="none" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
+      <path d={rPath} stroke="#fff" />
+      <path d={rPath} stroke="#2fd3b5" mask="url(#or-overlap)" />
+    </g>
+  </svg>
+}
+
+// Loading ring echoing the O of the monogram.
+export function Spinner({ size = 20 }: { size?: number }) {
+  return <svg className="spinner" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeOpacity=".22" strokeWidth="3" />
+    <path className="spinner-arc" d="M12 3a9 9 0 0 1 9 9" fill="none" strokeWidth="3" strokeLinecap="round" />
   </svg>
 }

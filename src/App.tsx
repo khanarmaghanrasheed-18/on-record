@@ -7,7 +7,7 @@ import ScoresPage from './components/ScoresPage'
 import ProfilePage from './components/ProfilePage'
 import Avatar from './components/Avatar'
 import Toast from './components/Toast'
-import Icon, { Disc, type IconName } from './components/Icon'
+import Icon, { Logo, Spinner, type IconName } from './components/Icon'
 import { UpdateNotice } from './components/InstallActions'
 import { isDue, listClaims } from './lib/claims'
 
@@ -62,7 +62,7 @@ const sampleCalls = [
 ]
 
 function Brand({ onClick }: { onClick?: () => void }) {
-  const inner = <><Disc size={34} /><span className="wordmark">On<b>Record</b></span></>
+  const inner = <><Logo size={36} /><span className="wordmark">On<b>Record</b></span></>
   return onClick ? <button className="brand" onClick={onClick} aria-label="On Record home">{inner}</button> : <span className="brand">{inner}</span>
 }
 
@@ -141,7 +141,7 @@ function AuthScreen() {
         <label>Email<input {...clipboardInputProps} value={email} onChange={event => setEmail(event.target.value)} type="email" placeholder="you@example.com" required autoComplete="email" /></label>
         {mode !== 'forgot' && <label>Password<input {...clipboardInputProps} value={password} onChange={event => setPassword(event.target.value)} type="password" minLength={6} placeholder="At least 6 characters" required autoComplete={mode === 'register' ? 'new-password' : 'current-password'} /></label>}
         <Toast message={message} onDismiss={() => setMessage('')} />
-        <button className="button primary full" disabled={busy}>{busy ? <><Disc size={20} /> One moment…</> : <>{mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <Icon name="arrow" size={18} /></>}</button>
+        <button className="button primary full" disabled={busy}>{busy ? <><Spinner size={20} /> One moment…</> : <>{mode === 'register' ? 'Create account' : mode === 'forgot' ? 'Send recovery email' : 'Sign in'} <Icon name="arrow" size={18} /></>}</button>
       </form>
       </div>
       {mode !== 'register' && <button className="text-button auth-recovery" onClick={() => { setMode(mode === 'forgot' ? 'sign-in' : 'forgot'); setMessage('') }}>{mode === 'forgot' ? 'Back to sign in' : 'Forgot password?'}</button>}
@@ -256,7 +256,7 @@ function FriendsPage({ profile, connections, refresh, onOpenProfile }: { profile
     <Toast message={message} onDismiss={() => setMessage('')} />
     <section className="connection-list">
       <div className="section-head"><h2>Connected friends</h2><span className="tag">{accepted.length} total</span></div>
-      {accepted.length ? <div className="connection-grid">{accepted.map((connection, index) => <button className="connection-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)} style={{ animationDelay: `${index * 45}ms` }}><Avatar profile={connection.person} /><span className="connection-text"><strong>{connection.person.display_name}</strong><small>{connection.person.headline || connection.person.friend_code}</small></span><span className="connection-status">Profile <Icon name="arrow" size={14} /></span></button>)}</div> : <div className="empty-state"><Disc size={44} spinning={false} /><p>No friends yet. Share your ID or send your first request.</p></div>}
+      {accepted.length ? <div className="connection-grid">{accepted.map((connection, index) => <button className="connection-row profile-link" key={connection.id} onClick={() => onOpenProfile(connection.person)} style={{ animationDelay: `${index * 45}ms` }}><Avatar profile={connection.person} /><span className="connection-text"><strong>{connection.person.display_name}</strong><small>{connection.person.headline || connection.person.friend_code}</small></span><span className="connection-status">Profile <Icon name="arrow" size={14} /></span></button>)}</div> : <div className="empty-state"><Logo size={44} /><p>No friends yet. Share your ID or send your first request.</p></div>}
       {outgoing.length > 0 && <><h3 className="subsection-title">Sent requests</h3><div className="connection-grid">{outgoing.map(connection => <div className="connection-row" key={connection.id}><Avatar profile={connection.person} /><span className="connection-text"><strong>{connection.person.display_name}</strong><small>Awaiting a response</small></span><span className="connection-status waiting">Pending</span></div>)}</div></>}
     </section>
   </div>
@@ -291,7 +291,7 @@ function App() {
     const current = viewRef.current
     if (current.section === section && current.profileId === profileId) return
     const next: AppView = { section, profileId, depth: current.depth + 1 }
-    window.history.pushState(historyStateWith(next), '')
+    window.history.pushState({ ...historyStateWith(next), __onRecordSub: null }, '')
     setDirection(sections.indexOf(section) < sections.indexOf(current.section) ? 'back' : 'forward')
     viewRef.current = next
     setView(next)
@@ -361,7 +361,7 @@ function App() {
 
   if (!supabase) return <div className="setup-message"><Brand /><h1>Connect your record book</h1><p>Copy <code>.env.example</code> to <code>.env</code> and enter your Supabase project URL and publishable key. Then restart the development server.</p></div>
   const activeClient = supabase
-  if (loading || (session && !profile && !error)) return <div className="loading-screen" role="status"><Disc size={72} /><p>Cueing up your records…</p></div>
+  if (loading || (session && !profile && !error)) return <div className="loading-screen" role="status"><Spinner size={72} /><p>Cueing up your records…</p></div>
   if (!session) return <AuthScreen />
   if (recoveryMode) return <RecoveryPassword onComplete={() => { setRecoveryMode(false); window.history.replaceState(historyStateWith(viewRef.current), '', window.location.pathname) }} />
   if (error) return <div className="setup-message"><Brand /><h1>Could not open the record book</h1><p>{error}</p><div className="setup-actions"><button className="button primary" onClick={() => void refresh()}>Try again</button><button className="text-button" onClick={() => void activeClient.auth.signOut()}>Sign out</button></div></div>
@@ -384,7 +384,7 @@ function App() {
   return <div className="app-shell">
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="app-header">
-      <div className="header-leading"><Brand onClick={() => navigate('records')} />{view.depth > 0 && <button className="header-back" onClick={goBack} aria-label="Go back to previous page"><Icon name="back" size={16} /><span>Back</span></button>}</div>
+      <div className="header-leading"><Brand onClick={() => navigate('records')} /></div>
       <div className="header-trailing">
         {dueCount > 0 && section !== 'notices' && <button className="due-pill" onClick={() => navigate('notices')}><span className="rec-dot" aria-hidden="true" />{dueCount} to settle</button>}
         <button className="header-user profile-link" onClick={ownProfile} aria-label="Open my profile"><Avatar profile={profile} /><span>{profile.display_name}</span></button>
@@ -394,7 +394,7 @@ function App() {
       <nav className="main-nav" aria-label="Main navigation" style={{ '--i': activeIndex } as CSSProperties}>
         <span className="nav-indicator" aria-hidden="true" />
         {navButtons('rail')}
-        <div className="nav-bottom"><Disc size={26} spinning={false} /><small>Made for calls that count.</small></div>
+        <div className="nav-bottom"><Logo size={26} /><small>Made for calls that count.</small></div>
       </nav>
       <main id="main" tabIndex={-1}>
         <div key={`${section}:${view.profileId || ''}`} className={`page-stage enter-${direction}`}>
