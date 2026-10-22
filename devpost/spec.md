@@ -37,6 +37,7 @@ No paid plan is required for the planned demo. Each free service has quotas; Sup
 - **Local build:** Node.js 24 is installed. Run `npm install`, create a local `.env` from `.env.example` with the Supabase URL and publishable key, then `npm run dev` and open the shown localhost URL. Apply the SQL migration and deploy the Edge Function to the user's Supabase project, with `GEMINI_API_KEY` saved as a server secret. Never paste credentials into chat or commit them.
 - **Hosted build:** connect the repository to Cloudflare Pages, build with `npm run build`, publish `dist/`, and set the public Supabase URL/key as build variables. HTTPS permits phone installation from the browser's **Add to Home Screen** flow. Set the hosted URL in Supabase Auth redirects.
 - **Demo:** use two test accounts, add a friend, complete a prepared claim whose check date is due, settle it, and show the pairwise score and title. The hackathon also requires a public repository and a demo video under three minutes; deployment does not replace them. [Devpost rules](https://learn-ai-basics.devpost.com/rules).
+- **Public links:** [GitHub repository](https://github.com/khanarmaghanrasheed-18/on-record), [live app](https://on-record-2rs.pages.dev/), and [1:57 demo video](https://www.youtube.com/watch?v=rTIaE3tbMMw). YouTube Studio shows the video visibility as Public.
 
 ## Look and Feel
 

@@ -9,4 +9,4 @@ build/
 .agents/
 .claude/
 agent/
-/OnRecord_demo.mp4
+/OnRecord_demo*.mp4

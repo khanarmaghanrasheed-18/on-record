@@ -2,6 +2,8 @@
 
 An installable record book for friends' predictions. Friends connect once by public ID, write their original answers, let AI check the claim's clarity, and settle the outcome for head-to-head points. Group claims count for each correct-versus-wrong pair.
 
+[Watch the demo](https://www.youtube.com/watch?v=rTIaE3tbMMw) · [Try the app](https://on-record-2rs.pages.dev/)
+
 **Build status:** two accounts connected; an informal objective claim locked, a subjective claim was rejected, and an AI-checked answer correction closed after five minutes in live testing. Two-person scores update. The app is hosted at [on-record-2rs.pages.dev](https://on-record-2rs.pages.dev/) and the owner reports that phone installation works. Group settlement and the latest navigation change still need live verification. See [`devpost/checklist.md`](devpost/checklist.md) for the exact remaining checks.
 
 ## How the parts fit
